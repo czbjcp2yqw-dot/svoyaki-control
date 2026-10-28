@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0a111e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="СВОяки" />
+  <meta name="description" content="Офлайн-календарь производства выпусков «СВОяки»: дедлайны, КПП, монтаж и синхронизация." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/favicon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <title>СВОяки — Production Control</title>
+</head>
+<body>
+  <div class="shell" id="shell">
+    <aside class="sidebar" aria-label="Навигация">
+      <div class="brand brand-sidebar"><div class="brand-mark">С</div><div><strong>СВОЯКИ</strong><small>PRODUCTION CONTROL</small></div></div>
+      <nav class="side-navigation" id="side-navigation"></nav>
+      <div class="sidebar-bottom"><div class="side-note">Офлайн-режим поддерживается.<br/>Данные останутся на устройстве.</div><div class="side-sync" id="desktop-sync">Подключение...</div></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="brand brand-mobile"><div class="brand-mark">С</div><div><strong>СВОЯКИ</strong><small>PRODUCTION CONTROL</small></div></div>
+        <div class="head-copy"><span class="eyebrow">ПРОИЗВОДСТВЕННЫЙ КОНТРОЛЬ</span><span id="page-title">Обзор проекта</span></div>
+        <div class="header-actions"><span class="status-chip" id="connection-chip"><span class="status-dot"></span>Загрузка</span><button class="circle-btn" id="sync-button" type="button" title="Синхронизировать" aria-label="Синхронизировать"><span class="icon">↻</span></button></div>
+      </header>
+      <main id="view" class="view" aria-live="polite"><div class="splash"><div class="spinner"></div><p>Загружаем локальный календарь…</p></div></main>
+    </div>
+    <nav class="mobile-nav" id="mobile-navigation" aria-label="Разделы приложения"></nav>
+  </div>
+  <div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div>
+  <script>window.SVOYAKI_STATIC_MODE = true;</script>
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
