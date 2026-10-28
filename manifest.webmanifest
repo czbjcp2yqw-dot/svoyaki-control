@@ -1,0 +1,29 @@
+{
+  "id": "./",
+  "name": "СВОяки — Production Control",
+  "short_name": "СВОяки",
+  "description": "Календарь производства подкаста с офлайн-режимом и синхронизацией",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "standalone"
+  ],
+  "background_color": "#0a111e",
+  "theme_color": "#0a111e",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "./icons/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
