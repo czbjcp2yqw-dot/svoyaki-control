@@ -1,6 +1,6 @@
 import {calculateSchedule, buildAgenda, formatDigest, fmtDate, localToday, isoForMoscow, diffDays, addDays} from './engine.js';
 import {openStorage,readAll,readOne,saveLocal,writeOne,setting} from './storage.js';
-import {login,logout,currentSession,checkConnection,syncNow,resolveConflict,getPushConfig,subscribePush,base64ToBytes,signedIn} from './sync.js';
+import {login,signup,logout,currentSession,checkConnection,syncNow,resolveConflict,getPushConfig,subscribePush,base64ToBytes,signedIn} from './sync.js';
 import {createIcs} from './ics.js';
 const STATIC_MODE = window.SVOYAKI_STATIC_MODE === true;
 const appBase = new URL('./', import.meta.url);
@@ -160,17 +160,21 @@ async function renderSettings(){
     <div class="settings-grid">
       <div class="panel"><div class="panel-header"><h3>Подключение к общей базе</h3>${chip(state.connection?'Сервер доступен':'Без связи',state.connection?'success':'warning')}</div>
       ${STATIC_MODE ? `<p class="small-note">Это автономная версия на GitHub Pages. Данные и факты сохраняются только в этом iPhone (IndexedDB). GitHub Pages не содержит серверной базы — изменения других телефонов автоматически не загружаются.</p><p class="notice-card">Не очищайте данные Safari без резервной копии. Используйте экспорт JSON ниже.</p><div class="actions"><button class="btn btn-primary" data-action="export-backup">↓ Резервная копия</button></div>` : signedIn()?`<p class="small-note">Аккаунт ${e(username||'пользователь')} подключён. Все новые изменения сохраняются на iPhone и передаются на сервер при появлении сети.</p><p class="small-note">Последняя синхронизация: ${e(lastSync?new Date(lastSync).toLocaleString('ru-RU'):'ещё не было')}</p><p>${chip(`${state.pending} несинхронизированных`)}</p><div class="actions"><button class="btn btn-primary" data-action="sync">↻ Обновить базу</button><button class="btn" data-action="logout">Выйти</button></div>`:
-      `<p class="small-note">Приложение уже может работать локально. Для общей базы и синхронизации с командой войди в аккаунт сервера.</p><form id="login-form" class="form-grid"><div class="field"><label>Пользователь</label><input name="username" autocomplete="username" value="${e(username||'admin')}" required /></div><div class="field"><label>Пароль</label><input name="password" type="password" autocomplete="current-password" required /></div><button class="btn btn-primary wide" type="submit">Войти и синхронизировать</button></form>`}
+      `<p class="small-note">Приложение уже может работать локально. Для общей базы и синхронизации с командой войди в аккаунт сервера.</p><form id="login-form" class="form-grid"><div class="field"><label>Email участника</label><input name="username" type="email" autocomplete="username" value="${e(username||'')}" required /></div><div class="field"><label>Пароль</label><input name="password" type="password" autocomplete="current-password" required /></div><button class="btn btn-primary wide" type="submit">Войти и синхронизировать</button><button class="btn wide" type="button" id="signup-button">Создать аккаунт сотрудника</button></form><p class="small-note">После регистрации подтвердите почту. Доступ к общей базе предоставляется администратором.</p>`}
       </div>
       <div class="panel"><div class="panel-header"><h3>Уведомления на iPhone</h3></div><p class="small-note">Ежедневную сводку можно прочитать в приложении без связи. ${STATIC_MODE?'В этой версии push не подключён: для них необходим отдельный сервер.':'Для push на закрытом iPhone нужен сервер, интернет и разрешение уведомлений.'} Отдельно можно выгрузить ближайшие сроки в календарь iPhone — это разовый снимок, который не обновляется сам.</p><div class="actions">${STATIC_MODE?'':`<button class="btn btn-primary" data-action="enable-push">◉ Включить push</button>`}<button class="btn" data-action="export-ics">▤ Экспорт .ics (45 дней)</button></div><div class="notice-card" style="margin-top:15px">Установи PWA из Safari: «Поделиться» → «На экран Домой». После установки открой приложение с иконки и включи push.</div></div>
       <div class="panel"><div class="panel-header"><h3>Автономная работа</h3>${chip(state.offlineReady?'Офлайн-пакет сохранён':'Проверить кэш',state.offlineReady?'success':'warning')}</div><p class="small-note">Сроки, введённые даты и статусы хранятся на устройстве. Интерфейс и КПП кэшируются при первом онлайн-запуске. ${STATIC_MODE?'Синхронизация между устройствами без серверной базы недоступна.':'При возвращении связи приложение автоматически синхронизирует очередь.'}</p><p class="small-note">iOS может удалить кэш или локальные данные при нехватке памяти. Не используйте офлайн-хранилище как единственную резервную копию.</p><div class="actions"><button class="btn" data-action="verify-offline">◉ Проверить офлайн-пакет</button><button class="btn" data-action="export-backup">↓ Сохранить резервную копию</button><button class="btn" data-action="import-backup">↑ Восстановить</button></div></div>
-      <div class="panel"><div class="panel-header"><h3>Исходный КПП</h3></div><p class="small-note">20 выпусков · 360 этапов. Исходные даты не изменяются, прогноз пересчитывается от подтверждённых фактов.</p><div class="codeblock">Источник: Свояки_Календарный_план.pdf<br/>Граница периода входит в длительность.<br/>Часовой пояс сводки: Москва.</div><p class="small-note">Серверную копию необходимо регулярно резервировать вместе с базой SQLite.</p></div>
+      <div class="panel"><div class="panel-header"><h3>Исходный КПП</h3></div><p class="small-note">20 выпусков · 360 этапов. Исходные даты не изменяются, прогноз пересчитывается от подтверждённых фактов.</p><div class="codeblock">Источник: Свояки_Календарный_план.pdf<br/>Граница периода входит в длительность.<br/>Часовой пояс сводки: Москва.</div><p class="small-note">Общая база данных: Supabase; локальное офлайн-хранилище: IndexedDB.</p></div>
     </div><input type="file" id="backup-picker" accept="application/json,.json" style="display:none"/>`;
   document.querySelector('#login-form')?.addEventListener('submit',async event=>{
     event.preventDefault();const fd=new FormData(event.target);
     try{await login(String(fd.get('username')),String(fd.get('password')));toast('Подключено к общей базе');await trySync();render();}catch(err){toast('Не удалось войти: '+err.message);}
   });
-  document.querySelector('#backup-picker')?.addEventListener('change',importBackup);
+  document.querySelector('#signup-button')?.addEventListener('click',async ()=>{
+const form=document.querySelector('#login-form');if(!form?.reportValidity())return;
+const fd=new FormData(form);try{await signup(String(fd.get('username')),String(fd.get('password')));toast('Проверь почту и попроси администратора добавить аккаунт в команду.');}catch(err){toast('Ошибка регистрации: '+err.message);}
+});
+document.querySelector('#backup-picker')?.addEventListener('change',importBackup);
 }
 function render(){
   updateNav();const view=document.querySelector('#view');
@@ -357,7 +361,7 @@ async function bootstrap(){
     window.addEventListener('online',()=>{if(STATIC_MODE)return;state.connection=true;updateNav();trySync();});
     window.addEventListener('offline',()=>{state.connection=false;updateNav();});
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!STATIC_MODE)trySync();});
-    setInterval(()=>{if(!document.hidden&&!STATIC_MODE)trySync();},90000);
+    setInterval(()=>{if(!document.hidden&&!STATIC_MODE)trySync();},30000);
   }catch(err){console.error(err);document.querySelector('#view').innerHTML=`<div class="panel"><h2>Не удалось открыть календарь</h2><p>${e(err.message)}</p><p>Нужно один раз открыть приложение в интернете, чтобы все файлы попали в офлайн-кэш.</p></div>`;}
 }
 bootstrap();
