@@ -41,7 +41,7 @@ function invitation(){
   localStorage.setItem(INVITE_KEY,token);
   query.delete('invite');
   const suffix=query.toString();
-  history.replaceState(null,'',location.pathname+(suffix?'?'+suffix:''));
+  if (navigator.standalone===true || window.matchMedia('(display-mode: standalone)').matches) history.replaceState(null,'',location.pathname+(suffix?'?'+suffix:''));
  }
  return localStorage.getItem(INVITE_KEY)||'';
 }
