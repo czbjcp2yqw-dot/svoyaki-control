@@ -1,6 +1,6 @@
 import {calculateSchedule, buildAgenda, formatDigest, fmtDate, localToday, isoForMoscow, diffDays, addDays} from './engine.js';
 import {openStorage,readAll,readOne,saveLocal,writeOne,setting} from './storage.js';
-import {login,signup,logout,currentSession,checkConnection,syncNow,resolveConflict,getPushConfig,subscribePush,base64ToBytes,signedIn} from './sync.js';
+import {login,signup,logout,currentSession,checkConnection,syncNow,resolveConflict,getPushConfig,subscribePush,base64ToBytes,signedIn,inviteAvailable} from './sync.js';
 import {createIcs} from './ics.js';
 const STATIC_MODE = window.SVOYAKI_STATIC_MODE === true;
 const appBase = new URL('./', import.meta.url);
@@ -160,7 +160,7 @@ async function renderSettings(){
     <div class="settings-grid">
       <div class="panel"><div class="panel-header"><h3>Подключение к общей базе</h3>${chip(state.connection?'Сервер доступен':'Без связи',state.connection?'success':'warning')}</div>
       ${STATIC_MODE ? `<p class="small-note">Это автономная версия на GitHub Pages. Данные и факты сохраняются только в этом iPhone (IndexedDB). GitHub Pages не содержит серверной базы — изменения других телефонов автоматически не загружаются.</p><p class="notice-card">Не очищайте данные Safari без резервной копии. Используйте экспорт JSON ниже.</p><div class="actions"><button class="btn btn-primary" data-action="export-backup">↓ Резервная копия</button></div>` : signedIn()?`<p class="small-note">Аккаунт ${e(username||'пользователь')} подключён. Все новые изменения сохраняются на iPhone и передаются на сервер при появлении сети.</p><p class="small-note">Последняя синхронизация: ${e(lastSync?new Date(lastSync).toLocaleString('ru-RU'):'ещё не было')}</p><p>${chip(`${state.pending} несинхронизированных`)}</p><div class="actions"><button class="btn btn-primary" data-action="sync">↻ Обновить базу</button><button class="btn" data-action="logout">Выйти</button></div>`:
-      `<p class="small-note">Приложение уже может работать локально. Для общей базы и синхронизации с командой войди в аккаунт сервера.</p><form id="login-form" class="form-grid"><div class="field"><label>Email</label><input name="username" type="email" autocomplete="email" value="${e(username||'')}" required /></div><div class="field"><label>Пароль</label><input name="password" type="password" autocomplete="current-password" required /></div><button class="btn btn-primary wide" type="submit">Войти и синхронизировать</button><button class="btn wide" id="signup-button" type="button">Создать учётную запись</button></form><p class="small-note">После регистрации менеджера доступ должен подтвердить администратор проекта. Без подтверждения данные других участников недоступны.</p>`}
+      `<p class="small-note">Введите только имя. Никаких писем, паролей и кодов подтверждения.</p><form id="login-form" class="form-grid"><div class="field"><label>Ваше имя</label><input name="username" type="text" autocomplete="name" maxlength="80" minlength="2" placeholder="Например, Михаил" value="${e(username||'')}" required /></div><button class="btn btn-primary wide" type="submit">Войти</button></form><p class="small-note">${inviteAvailable()?'Приглашение обнаружено. После входа данные команды будут доступны на этом iPhone.':'Первый вход доступен по специальной ссылке-приглашению. Попросите её у руководителя проекта.'} Имя не подтверждает личность: любой обладатель приглашения может указать чужое имя.</p>`}
       </div>
       <div class="panel"><div class="panel-header"><h3>Уведомления на iPhone</h3></div><p class="small-note">Ежедневную сводку можно прочитать в приложении без связи. ${STATIC_MODE?'В этой версии push не подключён: для них необходим отдельный сервер.':'Для push на закрытом iPhone нужен сервер, интернет и разрешение уведомлений.'} Отдельно можно выгрузить ближайшие сроки в календарь iPhone — это разовый снимок, который не обновляется сам.</p><div class="actions">${STATIC_MODE?'':`<button class="btn btn-primary" data-action="enable-push">◉ Включить push</button>`}<button class="btn" data-action="export-ics">▤ Экспорт .ics (45 дней)</button></div><div class="notice-card" style="margin-top:15px">Установи PWA из Safari: «Поделиться» → «На экран Домой». После установки открой приложение с иконки и включи push.</div></div>
       <div class="panel"><div class="panel-header"><h3>Автономная работа</h3>${chip(state.offlineReady?'Офлайн-пакет сохранён':'Проверить кэш',state.offlineReady?'success':'warning')}</div><p class="small-note">Сроки, введённые даты и статусы хранятся на устройстве. Интерфейс и КПП кэшируются при первом онлайн-запуске. ${STATIC_MODE?'Синхронизация между устройствами без серверной базы недоступна.':'При возвращении связи приложение автоматически синхронизирует очередь.'}</p><p class="small-note">iOS может удалить кэш или локальные данные при нехватке памяти. Не используйте офлайн-хранилище как единственную резервную копию.</p><div class="actions"><button class="btn" data-action="verify-offline">◉ Проверить офлайн-пакет</button><button class="btn" data-action="export-backup">↓ Сохранить резервную копию</button><button class="btn" data-action="import-backup">↑ Восстановить</button></div></div>
@@ -168,9 +168,8 @@ async function renderSettings(){
     </div><input type="file" id="backup-picker" accept="application/json,.json" style="display:none"/>`;
   document.querySelector('#login-form')?.addEventListener('submit',async event=>{
     event.preventDefault();const fd=new FormData(event.target);
-    try{await login(String(fd.get('username')),String(fd.get('password')));toast('Подключено к общей базе');await trySync();render();}catch(err){toast('Не удалось войти: '+err.message);}
+    try{await login(String(fd.get('username')));toast('Подключено к общей базе');await trySync();render();}catch(err){toast('Не удалось войти: '+err.message);}
   });
-  document.querySelector('#signup-button')?.addEventListener('click',async ()=>{const fd=new FormData(document.querySelector('#login-form'));try{const result=await signup(String(fd.get('username')),String(fd.get('password')));toast(result.needsConfirmation?'Проверь почту и подтверди регистрацию. Затем попроси доступ у администратора.':'Аккаунт создан, ожидает доступа администратора.');}catch(err){toast('Регистрация: '+err.message);}});
   document.querySelector('#backup-picker')?.addEventListener('change',importBackup);
 }
 function render(){
@@ -351,6 +350,7 @@ async function bootstrap(){
     document.querySelector('#sync-button').addEventListener('click',()=>processAction({target:{closest:()=>({dataset:{action:'sync'}})}}));
     state.connection=STATIC_MODE ? false : await checkConnection();
     if(state.connection)await currentSession();
+    if(!signedIn() && inviteAvailable())state.page='settings';
     if(window.location.search.includes('view=today'))state.page='agenda';
     render();
     if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js',{scope:'./'}).then(()=>verifyOffline()).catch(err=>console.warn('SW register:',err));}
