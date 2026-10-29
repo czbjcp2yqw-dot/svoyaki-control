@@ -35,8 +35,14 @@ async function memberCheck(){
 }
 function invitation(){
  const hash=new URLSearchParams(location.hash.slice(1));
- const token=hash.get('invite');
- if(token){localStorage.setItem(INVITE_KEY,token);history.replaceState(null,'',location.pathname+location.search);}
+ const query=new URLSearchParams(location.search);
+ const token=hash.get('invite') || query.get('invite');
+ if(token){
+  localStorage.setItem(INVITE_KEY,token);
+  query.delete('invite');
+  const suffix=query.toString();
+  history.replaceState(null,'',location.pathname+(suffix?'?'+suffix:''));
+ }
  return localStorage.getItem(INVITE_KEY)||'';
 }
 export function inviteAvailable(){return !!invitation();}
