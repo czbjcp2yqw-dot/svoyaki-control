@@ -4,6 +4,7 @@ const URL='https://vspytqnxxpvegwohgeag.supabase.co';
 const KEY='sb_publishable_qWzECuZVmVewFbvwZ0ErBg_FqKol8X2';
 const AUTH_KEY='svoyaki-supabase-session-v1';
 let session=null;
+const INVITE_KEY='svoyaki-invite-v1';
 let syncing=false;
 let approved=false;
 try {session=JSON.parse(localStorage.getItem(AUTH_KEY)||'null');} catch {}
@@ -29,22 +30,38 @@ async function memberCheck(){
  await token();
  const data=await request('/rest/v1/team_members?select=user_id,role&limit=1',{},true);
  approved=Array.isArray(data)&&data.length>0;
- if(!approved)throw new Error('Учётная запись создана, но доступ к общей базе ещё не выдан. Сообщите администратору email для приглашения.');
+ if(!approved)throw new Error('Нет доступа к команде. Откройте личную ссылку-приглашение.');
  return data[0];
 }
-export async function login(email,password){
- const data=await request('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})});
- session=data;localStorage.setItem(AUTH_KEY,JSON.stringify(data));
- await setting('lastUser',email);
- await memberCheck();return data;
+function invitation(){
+ const hash=new URLSearchParams(location.hash.slice(1));
+ const token=hash.get('invite');
+ if(token){localStorage.setItem(INVITE_KEY,token);history.replaceState(null,'',location.pathname+location.search);}
+ return localStorage.getItem(INVITE_KEY)||'';
 }
-export async function signup(email,password){
- const data=await request('/auth/v1/signup',{method:'POST',body:JSON.stringify({email,password})});
- await setting('lastUser',email);
- if(data?.access_token){session=data;localStorage.setItem(AUTH_KEY,JSON.stringify(data));await memberCheck();}
- return {created:true,needsConfirmation:!data?.access_token};
+export function inviteAvailable(){return !!invitation();}
+export async function login(name){
+ const person_name=String(name||'').trim();
+ if(person_name.length<2||person_name.length>80)throw new Error('Введите имя от 2 до 80 символов');
+ const invite=invitation();
+ if(!invite&&!approved)throw new Error('Для первого входа откройте ссылку-приглашение от руководителя');
+ if(!session?.access_token){
+  const data=await request('/auth/v1/signup',{method:'POST',body:JSON.stringify({data:{display_name:person_name},gotrue_meta_security:{}})});
+  if(!data?.access_token)throw new Error('Анонимный вход не включён в Supabase. Включите Anonymous Sign-Ins в настройках Auth.');
+  session=data;localStorage.setItem(AUTH_KEY,JSON.stringify(data));
+ }
+ await token();
+ if(invite){
+  await request('/rest/v1/rpc/join_svoyaki_team',{
+   method:'POST',body:JSON.stringify({invite,person_name})
+  },true);
+ }
+ await memberCheck();
+ await setting('lastUser',person_name);
+ return {ok:true};
 }
-export async function logout(){approved=false;session=null;localStorage.removeItem(AUTH_KEY);}
+export async function signup(name){return login(name);}
+export async function logout(){approved=false;session=null;localStorage.removeItem(AUTH_KEY);localStorage.removeItem(INVITE_KEY);}
 export async function currentSession(){
  if(!session?.access_token)return {authenticated:false};
  try{await memberCheck();return {authenticated:true};}
