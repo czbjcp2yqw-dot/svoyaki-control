@@ -1,5 +1,5 @@
 /* Offline-first static GitHub Pages build, scoped to this repository path. */
-const VERSION = 'svoyaki-offline-pages-v4';
+const VERSION = 'svoyaki-offline-pages-v5';
 const ROOT = self.registration.scope;
 const SHELL_FILES = [
   './','./index.html','./styles.css','./app.js','./engine.js',
