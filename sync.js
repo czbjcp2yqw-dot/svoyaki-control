@@ -40,7 +40,20 @@ function invitation(){
  return localStorage.getItem(INVITE_KEY)||'';
 }
 export function inviteAvailable(){return !!invitation();}
-export async function login(name){
+export async function login(name, inviteLink=''){
+ // iOS standalone PWA may use separate storage from the Safari tab.
+ // Accept a one-time invitation URL/code directly in the installed app.
+ const supplied=String(inviteLink||'').trim();
+ if(supplied){
+  let extracted=supplied;
+  try{
+   const u=new URL(supplied,location.href);
+   extracted=new URLSearchParams(u.hash.replace(/^#/,'')).get('invite')||u.searchParams.get('invite')||'';
+  }catch{}
+  if(!extracted || !/^[A-Za-z0-9_-]{20,200}$/.test(extracted))
+    throw new Error('Неверная ссылка-приглашение');
+  localStorage.setItem(INVITE_KEY,extracted);
+ }
  const person_name=String(name||'').trim();
  if(person_name.length<2||person_name.length>80)throw new Error('Введите имя от 2 до 80 символов');
  const invite=invitation();
