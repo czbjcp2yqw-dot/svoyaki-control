@@ -214,7 +214,7 @@ function overview() {
   const waiting = tasks.filter(task=>task.waiting || ['waiting','review'].includes(task.status));
   const taskCards = items => items.length ? items.map(task=>`<button class="card" data-card="${task.shoot.id}"><b>${sanitize(task.label)}</b><small>${sanitize(task.shoot.guest)} · ${fmt(due(task))}</small></button>`).join('') : '<p class="muted">Пока пусто</p>';
   return title('ПРОИЗВОДСТВО · 2026/2027','СВОяки','Съёмки, монтаж, согласование и сдача выпусков.')+
-    `<div class="grid"><div class="card stat"><small>Проведённые съёмки</small><strong>${shots.filter(s=>s.shot).length}</strong></div><div class="card stat"><small>Выпуски в КПП</small><strong>${state.data.episodes.length}</strong></div><div class="card stat"><small>Нужно подтвердить номер</small><strong>${shots.filter(s=>!s.number).length}</strong></div></div>
+    `<div class="grid"><div class="card stat"><small>Проведённые съёмки</small><strong>${shots.filter(s=>s.shot).length}</strong></div><div class="card stat"><small>Выпуски в КПП</small><strong>${state.data.episodes.length}</strong></div></div>
     <h2>Сегодня</h2><div class="grid">${taskCards(upcoming.filter(task=>due(task)===now))}</div>
     <h2>Просрочено</h2><div class="grid">${taskCards(overdue)}</div><h2>Ближайшие 7 дней</h2><div class="grid">${taskCards(upcoming.filter(task=>due(task)>now && (Date.parse(due(task))-Date.parse(now))/86400000<=7))}</div>
     <h2>Ожидаем материалы или согласование</h2><div class="grid">${taskCards(waiting)}</div><h2>Отснятые выпуски</h2><div class="grid">${shots.filter(s=>s.shot).map(shoot=>card(shoot,planFor(shoot.number))).join('')}</div>`;
