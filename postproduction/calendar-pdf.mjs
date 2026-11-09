@@ -1,4 +1,4 @@
-import {add,diff,statuses,today} from './schedule.mjs?v=15';
+import {add,diff,finishDelta,statuses,today} from './schedule.mjs?v=18';
 
 const PAGE_W = 1191;
 const PAGE_H = 842;
@@ -90,13 +90,13 @@ function overview(canvas,season,releases) {
     });
   });
   rect(36,top+releases.length*rowH,1118,.65,palette.line);
-  text('Цветные полосы показывают окна работ по фазам. Прогноз, внесённые даты и статусы указаны на следующих листах.',36,774,10,palette.muted);
+  text('Цветные полосы показывают окна работ по фазам. Исходный КПП и отклонения по дням указаны на следующих листах.',36,774,10,palette.muted);
 }
 function details(canvas,season,releases) {
   const {text,rect}=canvas;
   const title=releases.map(release=>localNumber(release.number)).join(' / ');
-  heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · актуальный прогноз и внесённые даты');
-  const columns=[36,93,460,655,825,1015,1154];
+  heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · исходный КПП, прогноз и факт');
+  const columns=[36,82,337,478,619,715,810,925,1020,1154];
   let y=115;
   for (const release of releases) {
     rect(36,y,1118,25,palette.pale);
@@ -105,16 +105,21 @@ function details(canvas,season,releases) {
     const input=shoot ? `Монтажный план: ${fmtDate(shoot.plan)} · расшифровка: ${fmtDate(shoot.transcript)}` : 'Дата съёмки не задана';
     text(input,685,y+17,9,palette.muted,450);
     y+=41;
-    ['Код','Этап','Актуальный прогноз','Дата начала','Дата завершения','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
+    ['Код','Этап','Исходный КПП','Актуальный прогноз','Сдвиг прогноза','Дата начала','Дата завершения','Сдвиг факта','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
     y+=6;
     release.items.forEach((item,index)=>{
       if (index%2===0) rect(36,y,1118,14,palette.soft);
-      const cells=[item.code,item.label,shoot ? dateRange(item.start,item.end) : '—',fmtDate(item.actualStart),fmtDate(item.actual),statuses[item.status]||item.status];
-      cells.forEach((value,i)=>text(value,columns[i]+3,y+10,9,i===5 && item.status==='done'?'#237054':palette.ink,columns[i+1]-columns[i]-5));
+      const cells=[
+        item.code,item.label,dateRange(item.originalStart,item.originalEnd),
+        shoot ? dateRange(item.start,item.end) : '—',finishDelta(shoot ? item.end : '',item.originalEnd),
+        fmtDate(item.actualStart),fmtDate(item.actual),finishDelta(item.actual,item.originalEnd),statuses[item.status]||item.status,
+      ];
+      cells.forEach((value,i)=>text(value,columns[i]+3,y+10,9,i===cells.length-1 && item.status==='done'?'#237054':palette.ink,columns[i+1]-columns[i]-5));
       y+=14;
     });
     y+=15;
   }
+  text('Сдвиг — разница с датой завершения по исходному КПП в календарных днях. Плюс — позже, минус — раньше.',36,760,10,palette.muted);
   text('Пустые даты обозначены прочерком. Прогноз появляется после добавления даты съёмки.',36,775,10,palette.muted);
 }
 function unlinked(canvas,shoots) {

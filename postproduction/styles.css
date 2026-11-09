@@ -31,7 +31,7 @@
 .download.primary{background:var(--accent);color:#201707;border-color:var(--accent);font-weight:700}
 .download:hover{border-color:var(--accent)}
 .calendar-card{display:grid;gap:.65rem}
-.calendar-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem .7rem}
+.calendar-dates{display:grid;gap:.65rem}
 .calendar-dates>span{display:grid;gap:.2rem;font-variant-numeric:tabular-nums}
 .calendar-dates>span>span{font-size:.82rem}
 

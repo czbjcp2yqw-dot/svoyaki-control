@@ -1,4 +1,4 @@
-import {calendarFor,defaultEditors,editorKey,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs?v=15';
+import {calendarFor,defaultEditors,editorKey,finishDelta,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs?v=18';
 
 const main = document.querySelector('#main');
 const workspaceScroll = document.querySelector('#workspace-scroll') || document.scrollingElement;
@@ -272,7 +272,7 @@ async function prepareCalendarPdf(season) {
   try {
     const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
       api('state'),
-      import('./calendar-pdf.mjs?v=15'),
+      import('./calendar-pdf.mjs?v=18'),
       import('./calendar-font.mjs'),
     ]);
     if (state.data?.member.id!==memberId || snapshot.member.id!==memberId) return;
@@ -305,9 +305,15 @@ function calendarPdfActions() {
 }
 function calendar() {
   const {releases,unlinked}=calendarFor(state.data.episodes,shoots(),read,state.season);
-  const stageDate=(item,shoot)=>fmt(item?.actual || (shoot ? item?.end : ''));
+  const milestone=(item,name,hasShoot)=>{
+    const original=item.originalEnd;
+    const projected=hasShoot ? item.end : '';
+    const dateLine=(label,date)=>`<small>${label} · ${fmt(date)}${date ? ' ('+finishDelta(date,original)+')' : ''}</small>`;
+    return `<span><span>${name}</span><small>Исходный КПП · ${fmt(original)}</small>
+      ${dateLine('Прогноз',projected)}${dateLine('Завершено',item.actual)}</span>`;
+  };
   const highlights=[['fish','Рыба'],['premaster','Предмастер'],['delivery','Сдача мастера']];
-  return title('КПП · 2026/2027','Календарный план','Сроки по выпускам с учётом сохранённых дат, фактов и статусов.')+
+  return title('КПП · 2026/2027','Календарный план','Сравнение сроков завершения по исходному КПП, прогнозу и факту. Плюс означает позже плана, минус — раньше.')+
     seasonPicker()+`<div class="calendar-download"><button data-action="calendar-pdf" data-season-download="${state.season}" class="download ${preparedPdf?'':'primary'}" ${pdfBusy?'disabled':''}>Подготовить PDF сезона ${state.season}</button><button data-action="calendar-pdf" class="download" ${pdfBusy?'disabled':''}>Подготовить оба сезона</button></div>
     ${pdfBusy?'<p role="status">Готовлю календарный план…</p>':calendarPdfActions()}
     <p class="muted">${state.pending.length?'Есть правки в очереди. В PDF попадут данные, которые уже сохранены на сервере.':'PDF формируется из сохранённых данных на момент подготовки.'}</p>
@@ -317,7 +323,7 @@ function calendar() {
       return `<button class="card calendar-card" data-card="${release.shoot?.id || 'p'+release.number}">
         <span class="split">${pill('ВЫПУСК №'+number)}<small>${release.percent}%</small></span>
         <strong>${sanitize(label)}</strong>
-        <span class="calendar-dates">${highlights.map(([key,name])=>`<span><small>${name}</small><span>${stageDate(release.items.find(item=>item.key===key),release.shoot)}</span></span>`).join('')}</span>
+        <span class="calendar-dates">${highlights.map(([key,name])=>milestone(release.items.find(item=>item.key===key),name,Boolean(release.shoot))).join('')}</span>
         <small>${sanitize(release.current?.label || 'Все этапы закрыты')}</small>
       </button>`;
     }).join('')}</div>

@@ -1,6 +1,11 @@
 const DAY = 86400000;
 export const add = (date, days) => new Date(Date.parse(date) + days * DAY).toISOString().slice(0, 10);
 export const diff = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / DAY);
+export function finishDelta(date, originalEnd) {
+  if (!date || !originalEnd) return '—';
+  const days = diff(date, originalEnd);
+  return `${days>0 ? '+' : ''}${days} дн.`;
+}
 export const latest = (...dates) => dates.filter(Boolean).sort().at(-1) || '';
 export const statuses = {
   todo:'Не начато', working:'В работе', waiting:'Ожидает', review:'На согласовании',
