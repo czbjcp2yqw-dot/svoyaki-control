@@ -11,6 +11,8 @@ const fmt = value => value ? value.split('-').reverse().join('.') : '—';
 const state = {data:null, pending:[], page:'home', selected:null, search:'', season:1, online:false, last:'', busy:false, team:[]};
 let notification;
 let viewNeedsRefresh=false;
+let preparedPdf;
+let pdfBusy=false;
 const onPages = location.origin === 'https://czbjcp2yqw-dot.github.io';
 const apiRoot = onPages ? 'https://svoyaki-postproduction.v7gfckmnr2.chatgpt.site/api/' : '/api/';
 const keyFromHash = hash => hash.match(/^#team=([a-f0-9]{64})$/)?.[1] || '';
@@ -101,6 +103,7 @@ async function synchronize() {
   try {
     const remote = await api('state');
     if (state.data && remote.member.id !== state.data.member.id) {
+      clearCalendarPdf();
       await disk('readwrite',store=>store.delete(IDBKeyRange.bound('op:','op;')));
       state.pending = [];
     }
@@ -126,6 +129,7 @@ async function synchronize() {
   } catch (error) {
     state.online = false;
     if (error.status === 401) {
+      clearCalendarPdf();
       if (onPages && teamSession) {
         teamSession = '';
         await remove('team-session');
@@ -256,34 +260,57 @@ function graph() {
     <div class="graph-grid">${rows}</div>
     ${unlinked.length?`<h2>Съёмки без номера</h2><p class="muted">Прогресс появится после привязки к выпуску.</p><div class="grid">${unlinked.map(shoot=>card(shoot,null)).join('')}</div>`:''}`;
 }
-async function downloadCalendar(season) {
-  notify('Готовлю календарный план…');
-  const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
-    api('state'),
-    import('./calendar-pdf.mjs?v=15'),
-    import('./calendar-font.mjs'),
-  ]);
-  const readSaved=field=>snapshot.fields[field]?.value;
-  const shootsSaved=resolveShoots(snapshot.episodes,snapshot.shoots,readSaved);
-  const plan=calendarFor(snapshot.episodes,shootsSaved,readSaved,season);
-  const file=new Blob([renderCalendarPdf(plan,calendarFont)],{type:'application/pdf'});
-  const href=URL.createObjectURL(file);
-  const link=document.createElement('a');
-  link.href=href;
-  link.download=`svoyaki-kpp-${season ? 'season-'+season+'-' : ''}${today()}.pdf`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(()=>URL.revokeObjectURL(href),60000);
-  notify('PDF готов.');
+function clearCalendarPdf() {
+  if (preparedPdf) URL.revokeObjectURL(preparedPdf.href);
+  preparedPdf = undefined;
+}
+async function prepareCalendarPdf(season) {
+  if (pdfBusy) return;
+  const memberId = state.data.member.id;
+  pdfBusy = true;
+  render();
+  try {
+    const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
+      api('state'),
+      import('./calendar-pdf.mjs?v=15'),
+      import('./calendar-font.mjs'),
+    ]);
+    if (state.data?.member.id!==memberId || snapshot.member.id!==memberId) return;
+    const readSaved=field=>snapshot.fields[field]?.value;
+    const shootsSaved=resolveShoots(snapshot.episodes,snapshot.shoots,readSaved);
+    const plan=calendarFor(snapshot.episodes,shootsSaved,readSaved,season);
+    const name=`svoyaki-kpp-${season ? 'season-'+season+'-' : ''}${today()}.pdf`;
+    const file=new File([renderCalendarPdf(plan,calendarFont)],name,{type:'application/pdf'});
+    const href=URL.createObjectURL(file);
+    clearCalendarPdf();
+    preparedPdf={file,href,season};
+  } finally {
+    pdfBusy = false;
+    if (state.page==='calendar' && state.data) render();
+  }
+}
+function calendarPdfActions() {
+  if (!preparedPdf) return '';
+  const {file,href,season}=preparedPdf;
+  const canShare=navigator.share && navigator.canShare?.({files:[file]});
+  return `<section class="panel">
+    <h3 role="status">PDF готов · ${season ? 'сезон '+season : 'оба сезона'}</h3>
+    <div class="calendar-download">
+      <a class="download primary" href="${sanitize(href)}" download="${sanitize(file.name)}">Скачать PDF</a>
+      <a class="download" href="${sanitize(href)}" target="_blank" rel="noopener">Открыть PDF</a>
+      ${canShare?'<button class="download" data-action="share-calendar-pdf">Поделиться PDF</button>':''}
+    </div>
+    ${canShare?'<small>На iPhone в меню «Поделиться» выберите «Сохранить в Файлы».</small>':''}
+  </section>`;
 }
 function calendar() {
   const {releases,unlinked}=calendarFor(state.data.episodes,shoots(),read,state.season);
   const stageDate=(item,shoot)=>fmt(item?.actual || (shoot ? item?.end : ''));
   const highlights=[['fish','Рыба'],['premaster','Предмастер'],['delivery','Сдача мастера']];
   return title('КПП · 2026/2027','Календарный план','Сроки по выпускам с учётом сохранённых дат, фактов и статусов.')+
-    seasonPicker()+`<div class="calendar-download"><button data-action="calendar-pdf" data-season-download="${state.season}" class="download primary">Скачать PDF сезона ${state.season}</button><button data-action="calendar-pdf" class="download">Скачать оба сезона</button></div>
-    <p class="muted">${state.pending.length?'Есть правки в очереди. В PDF попадут данные, которые уже сохранены на сервере.':'PDF формируется из сохранённых данных на момент скачивания.'}</p>
+    seasonPicker()+`<div class="calendar-download"><button data-action="calendar-pdf" data-season-download="${state.season}" class="download ${preparedPdf?'':'primary'}" ${pdfBusy?'disabled':''}>Подготовить PDF сезона ${state.season}</button><button data-action="calendar-pdf" class="download" ${pdfBusy?'disabled':''}>Подготовить оба сезона</button></div>
+    ${pdfBusy?'<p role="status">Готовлю календарный план…</p>':calendarPdfActions()}
+    <p class="muted">${state.pending.length?'Есть правки в очереди. В PDF попадут данные, которые уже сохранены на сервере.':'PDF формируется из сохранённых данных на момент подготовки.'}</p>
     <div class="grid">${releases.map(release=>{
       const label=release.shoot?.guest || 'Гость уточняется';
       const number=episodeNumber(release.number);
@@ -534,7 +561,13 @@ document.addEventListener('click',async event=>{
       case 'editor': openEditor(); break;
       case 'bind': bind(); break;
       case 'add-release': addRelease(Number(d.number)); break;
-      case 'calendar-pdf': await downloadCalendar(d.seasonDownload ? Number(d.seasonDownload) : undefined); break;
+      case 'calendar-pdf': await prepareCalendarPdf(d.seasonDownload ? Number(d.seasonDownload) : undefined); break;
+      case 'share-calendar-pdf':
+        if (preparedPdf) {
+          try {await navigator.share({files:[preparedPdf.file]});}
+          catch (error) {if (error.name!=='AbortError') notify('Воспользуйтесь кнопкой «Скачать PDF» или «Открыть PDF».');}
+        }
+        break;
       case 'sync': await synchronize(); notify(state.last ? 'Последняя синхронизация '+state.last : 'Синхронизация ожидает связи'); break;
       case 'team': await loadTeam(); break;
       case 'logout':
@@ -547,6 +580,7 @@ document.addEventListener('click',async event=>{
             catch (error) {if (error.status!==401) throw error;}
             teamSession = '';
           }
+          clearCalendarPdf();
           await disk('readwrite',store=>store.clear());
           if (onPages) {
             state.data = null;
