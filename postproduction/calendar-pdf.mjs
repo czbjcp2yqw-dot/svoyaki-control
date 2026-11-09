@@ -49,16 +49,18 @@ function heading(canvas,title,subtitle) {
 }
 function overview(canvas,season,releases) {
   const {text,rect}=canvas;
-  const allDates=releases.flatMap(release=>release.items.flatMap(item=>[item.start,item.end,item.actualStart,item.actual].filter(Boolean))).sort();
+  const allDates=releases.flatMap(release=>release.items.flatMap(item=>
+    (release.shoot ? [item.start,item.end,item.actualStart,item.actual] : [item.actualStart,item.actual]).filter(Boolean)
+  )).sort();
   const start=allDates[0], end=allDates.at(-1);
-  const span=diff(end,start)+1;
-  heading(canvas,`Сезон ${season} — обзор производства`,`${releases.length} выпусков · ${dateRange(start,end)} · актуальный прогноз по сохранённым данным`);
+  const span=start ? diff(end,start)+1 : 0;
+  heading(canvas,`Сезон ${season} — обзор производства`,`${releases.length} выпусков · ${start ? dateRange(start,end)+' · прогноз и фактические даты' : 'Даты пока не указаны'}`);
   phases.forEach((phase,i)=>{
     rect(48+i*150,112,11,6,phase.color);
     text(phase.label,65+i*150,119,10,phase.color);
   });
   const gridX=319, gridW=835, rowH=59, top=162;
-  const scale=gridW/span;
+  const scale=span ? gridW/span : 0;
   const labelStep=Math.max(7,Math.ceil(span/126)*7);
   if (span<=180) {
     for (let offset=0;offset<span;offset++) {
@@ -80,41 +82,41 @@ function overview(canvas,season,releases) {
     text(`${release.percent}% · ${release.closed} из ${release.total} этапов`,36,y+47,9,palette.muted,270);
     phases.forEach((phase,lane)=>{
       release.items.filter(item=>phase.stages.includes(item.key) && item.status!=='skipped').forEach(item=>{
-        const to=item.actual || item.end;
-        const from=item.actualStart || (item.start<to ? item.start : to);
+        const to=item.actual || (release.shoot ? item.end : item.actualStart);
+        if (!to) return;
+        const from=item.actualStart || (release.shoot && item.start<to ? item.start : to);
         const x=gridX+diff(from,start)*scale;
         rect(x,y+7+lane*9,Math.max(1.25,(diff(to,from)+1)*scale),5.5,phase.color);
       });
     });
   });
   rect(36,top+releases.length*rowH,1118,.65,palette.line);
-  text('Цветные полосы показывают окна работ по фазам. Исходный КПП, прогноз, факты и статусы указаны на следующих листах.',36,774,10,palette.muted);
+  text('Цветные полосы показывают окна работ по фазам. Прогноз, фактические даты и статусы указаны на следующих листах.',36,774,10,palette.muted);
 }
 function details(canvas,season,releases) {
   const {text,rect}=canvas;
   const title=releases.map(release=>localNumber(release.number)).join(' / ');
-  heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · исходные сроки КПП, актуальный прогноз и фактические даты');
-  const columns=[36,93,380,540,710,854,1015,1154];
+  heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · актуальный прогноз и фактические даты');
+  const columns=[36,93,460,655,825,1015,1154];
   let y=115;
   for (const release of releases) {
     rect(36,y,1118,25,palette.pale);
     text(`№ ${localNumber(release.number)} · ${displayLabel(release)}`,44,y+17,13,palette.ink,600);
     const shoot=release.shoot;
-    const input=shoot ? `Монтажный план: ${fmtDate(shoot.plan)} · расшифровка: ${fmtDate(shoot.transcript)}` : 'Съёмка по исходному КПП';
+    const input=shoot ? `Монтажный план: ${fmtDate(shoot.plan)} · расшифровка: ${fmtDate(shoot.transcript)}` : 'Дата съёмки не задана';
     text(input,685,y+17,9,palette.muted,450);
     y+=41;
-    ['Код','Этап','Исходный КПП','Актуальный прогноз','Фактическая дата начала','Фактическая дата завершения','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
+    ['Код','Этап','Актуальный прогноз','Фактическая дата начала','Фактическая дата завершения','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
     y+=6;
     release.items.forEach((item,index)=>{
       if (index%2===0) rect(36,y,1118,14,palette.soft);
-      const label=item.sourceIssue ? item.label+' *' : item.label;
-      const cells=[item.code,label,dateRange(item.originalStart,item.originalEnd),dateRange(item.start,item.end),fmtDate(item.actualStart),fmtDate(item.actual),statuses[item.status]||item.status];
-      cells.forEach((value,i)=>text(value,columns[i]+3,y+10,9,i===6 && item.status==='done'?'#237054':palette.ink,columns[i+1]-columns[i]-5));
+      const cells=[item.code,item.label,shoot ? dateRange(item.start,item.end) : '—',fmtDate(item.actualStart),fmtDate(item.actual),statuses[item.status]||item.status];
+      cells.forEach((value,i)=>text(value,columns[i]+3,y+10,9,i===5 && item.status==='done'?'#237054':palette.ink,columns[i+1]-columns[i]-5));
       y+=14;
     });
     y+=15;
   }
-  text('* В исходном КПП есть замечание к длительности или порядку этапа. Пустые факты обозначены прочерком.',36,775,10,palette.muted);
+  text('Пустые даты обозначены прочерком. Прогноз появляется после добавления даты съёмки.',36,775,10,palette.muted);
 }
 function unlinked(canvas,shoots) {
   const {text,rect}=canvas;

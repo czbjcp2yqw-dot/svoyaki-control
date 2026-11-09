@@ -8,7 +8,7 @@ const syncBadge = document.querySelector('#sync');
 const toast = document.querySelector('#toast');
 const sanitize = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
 const fmt = value => value ? value.split('-').reverse().join('.') : '—';
-const state = {data:null, pending:[], page:'home', selected:null, search:'', filter:'all', season:1, online:false, last:'', busy:false, team:[]};
+const state = {data:null, pending:[], page:'home', selected:null, search:'', season:1, online:false, last:'', busy:false, team:[]};
 let notification;
 let viewNeedsRefresh=false;
 const onPages = location.origin === 'https://czbjcp2yqw-dot.github.io';
@@ -197,7 +197,7 @@ function card(shoot,episode) {
   const number = shoot?.number || episode?.number;
   const progress = shoot && episode ? progressFor(compute(episode,shoot).items) : null;
   return `<button class="card" data-card="${shoot?.id || 'p'+number}">${pill(number ? `СЕЗОН ${episode.season} · №${episodeNumber(number)}` : 'НУЖНО СВЯЗАТЬ С КПП')}
-    <h3>${sanitize(shoot?.guest || 'Выпуск №'+episodeNumber(number))}</h3><span class="muted">${shoot ? (shoot.shot?'Снято ':'Съёмка запланирована ')+fmt(shoot.date) : 'Съёмка по КПП '+fmt(episode.stages[0].start)}</span>
+    <h3>${sanitize(shoot?.guest || 'Выпуск №'+episodeNumber(number))}</h3><span class="muted">${shoot ? (shoot.shot?'Снято ':'Съёмка запланирована ')+fmt(shoot.date) : 'Дата съёмки не задана'}</span>
     <span class="muted card-editor">Монтажёр: ${sanitize(editorLabel(episode,shoot))}</span>
     ${progress == null ? '' : `<p class="muted">${progress.percent}% · ${progress.closed} из ${progress.total} этапов</p>`}</button>`;
 }
@@ -222,18 +222,18 @@ function overview() {
 function list() {
   const shots = shoots();
   const q = state.search.toLowerCase().trim();
-  const match = (shoot,episode) => `${shoot?.guest || ''} ${episode ? episodeNumber(episode.number) : ''} ${shoot?.date || ''}`.toLowerCase().includes(q);
+  const match = (shoot,episode) => `${shoot?.guest || ''} ${episode ? episodeNumber(episode.number) : ''} ${shoot?.date || ''} ${shoot ? fmt(shoot.date) : ''}`.toLowerCase().includes(q);
   const seasonEpisodes = state.data.episodes.filter(episode=>episode.season===state.season);
   const registered = shots.filter(shoot=>seasonEpisodes.some(e=>e.number===shoot.number))
-    .filter(shoot=>match(shoot,planFor(shoot.number)) && (state.filter!=='actual' || shoot.shot));
+    .filter(shoot=>match(shoot,planFor(shoot.number)));
   const unlinked = shots.filter(shoot=>!shoot.number && match(shoot,null));
   const plans = seasonEpisodes.filter(e=>!shots.some(s=>s.number===e.number) && match(null,e));
   return title('КАТАЛОГ','Выпуски','В каждом сезоне по 10 выпусков. Выберите выпуск, чтобы открыть его этапы.')+
     seasonPicker()+
-    `<div class="split release-toolbar"><div class="row"><input class="search" id="search" aria-label="Поиск" placeholder="Имя, номер или дата" value="${sanitize(state.search)}"><select class="search" id="filter" aria-label="Фильтр">${Object.entries({all:'Все',actual:'Отсняты',unlinked:'Нужно связать',plan:'По КПП'}).map(([value,label])=>`<option value="${value}" ${state.filter===value?'selected':''}>${label}</option>`).join('')}</select></div>${newButton()}</div>
-    ${['all','actual'].includes(state.filter)?`<h2>Добавленные выпуски</h2><div class="grid">${registered.map(s=>card(s,planFor(s.number))).join('') || '<p class="muted">Пока пусто</p>'}</div>`:''}
-    ${['all','plan'].includes(state.filter)?`<h2>Плановые выпуски КПП</h2><div class="grid">${plans.map(e=>card(null,e)).join('') || '<p class="muted">Нет совпадений</p>'}</div>`:''}
-    ${['all','unlinked'].includes(state.filter) && unlinked.length?`<h2>Съёмки без номера</h2><div class="grid">${unlinked.map(s=>card(s,null)).join('')}</div>`:''}`;
+    `<div class="split release-toolbar"><input class="search" id="search" aria-label="Поиск" placeholder="Имя, номер или дата" value="${sanitize(state.search)}">${newButton()}</div>
+    <h2>Добавленные выпуски</h2><div class="grid">${registered.map(s=>card(s,planFor(s.number))).join('') || '<p class="muted">Пока пусто</p>'}</div>
+    <h2>Выпуски без даты съёмки</h2><div class="grid">${plans.map(e=>card(null,e)).join('') || '<p class="muted">Нет совпадений</p>'}</div>
+    ${unlinked.length?`<h2>Съёмки без номера</h2><div class="grid">${unlinked.map(s=>card(s,null)).join('')}</div>`:''}`;
 }
 function graph() {
   const shots = shoots();
@@ -260,7 +260,7 @@ async function downloadCalendar(season) {
   notify('Готовлю календарный план…');
   const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
     api('state'),
-    import('./calendar-pdf.mjs'),
+    import('./calendar-pdf.mjs?v=12'),
     import('./calendar-font.mjs'),
   ]);
   const readSaved=field=>snapshot.fields[field]?.value;
@@ -279,7 +279,7 @@ async function downloadCalendar(season) {
 }
 function calendar() {
   const {releases,unlinked}=calendarFor(state.data.episodes,shoots(),read,state.season);
-  const stageDate=item=>item ? fmt(item.actual || item.end) : '—';
+  const stageDate=(item,shoot)=>fmt(item?.actual || (shoot ? item?.end : ''));
   const highlights=[['shoot','Съёмка'],['fish','Рыба'],['premaster','Предмастер'],['delivery','Сдача мастера']];
   return title('КПП · 2026/2027','Календарный план','Сроки по выпускам с учётом сохранённых дат, фактов и статусов.')+
     seasonPicker()+`<div class="calendar-download"><button data-action="calendar-pdf" data-season-download="${state.season}" class="download primary">Скачать PDF сезона ${state.season}</button><button data-action="calendar-pdf" class="download">Скачать оба сезона</button></div>
@@ -290,7 +290,7 @@ function calendar() {
       return `<button class="card calendar-card" data-card="${release.shoot?.id || 'p'+release.number}">
         <span class="split">${pill('ВЫПУСК №'+number)}<small>${release.percent}%</small></span>
         <strong>${sanitize(label)}</strong>
-        <span class="calendar-dates">${highlights.map(([key,name])=>`<span><small>${name}</small><span>${stageDate(release.items.find(item=>item.key===key))}</span></span>`).join('')}</span>
+        <span class="calendar-dates">${highlights.map(([key,name])=>`<span><small>${name}</small><span>${stageDate(release.items.find(item=>item.key===key),release.shoot)}</span></span>`).join('')}</span>
         <small>${sanitize(release.current?.label || 'Все этапы закрыты')}</small>
       </button>`;
     }).join('')}</div>
@@ -306,7 +306,7 @@ function detail() {
   const calc = episode ? compute(episode,shoot) : null;
   const overline = episode ? `СЕЗОН ${episode.season} · ВЫПУСК №${episodeNumber(episode.number)}` : 'СЪЁМКА · НУЖНО СВЯЗАТЬ С КПП';
   return `<button data-page="episodes">← Выпуски</button><div class="actions">${title(overline,shoot?.guest || 'Выпуск №'+episodeNumber(episode.number),
-    shoot ? `${shoot.shot?'Факт':'План'} съёмки ${fmt(shoot.date)}${episode ? ` · план ${fmt(episode.stages[0].start)} · сдвиг ${calc.shift>0?'+':''}${calc.shift} дн.` : ''}` : `План съёмки ${fmt(episode.stages[0].start)}`)}</div>
+    shoot ? `${shoot.shot?'Факт':'План'} съёмки ${fmt(shoot.date)}` : 'Дата съёмки не задана')}</div>
     <div class="panel editor-panel"><div class="split"><div><small>Монтажёр выпуска</small><div><strong>${sanitize(editorLabel(episode,shoot))}</strong></div></div>${manager()?'<button data-action="editor">Изменить монтажёра</button>':''}</div></div>
     ${shoot ? `<div class="panel"><div class="split"><div><h3>Материалы и входящие</h3><p class="muted">Монтажный план ${fmt(shoot.plan)} · расшифровка ${fmt(shoot.transcript)}</p>${external(shoot.link,'Открыть папку материалов') || '<small>Ссылка на папку пока не добавлена</small>'}</div><button data-action="shoot">Изменить</button></div></div>` : ''}
     ${!shoot && episode ? `<div class="actions">${newButton(episode.number)}</div>` : ''}
@@ -317,11 +317,10 @@ function detail() {
       return `<div class="stage ${done?'done':''}">
         ${locked?'':`<button class="check" aria-label="${done?'Снять отметку':'Отметить готовым'}" data-check="${item.key}">${done?'✓':'□'}</button>`}
         <button data-stage="${item.key}" ${locked?'disabled':''}><strong>${sanitize(item.label)} · ${sanitize(statuses[item.status])}</strong>
-        <small>КПП ${fmt(item.originalStart)}–${fmt(item.originalEnd)} · прогноз ${fmt(item.start)}–${fmt(item.end)}</small>
+        ${shoot?`<small>Прогноз · ${fmt(item.start)}–${fmt(item.end)}</small>`:''}
         <small>Фактическая дата начала · ${fmt(item.actualStart)}</small>
         <small>Фактическая дата завершения · ${fmt(item.actual)}</small>
         ${item.waiting?'<small>Ожидается монтажный план. Прогноз предварительный.</small>':''}
-        ${item.sourceIssue?'<small>Исходное окно и длительность требуют сверки.</small>':''}
         </button></div>`;
     }).join('')}</div>`}`;
 }
@@ -452,11 +451,11 @@ function bind() {
   const {shoot} = selection();
   const taken = new Set(shoots().map(s=>s.number));
   const options = state.data.episodes.filter(e=>!taken.has(e.number));
-  modal('Привязать съёмку к КПП',`<label>Выпуск<select id="number" name="number" required><option value="">Выберите выпуск</option>${options.map(e=>`<option value="${e.number}">Сезон ${e.season} · №${episodeNumber(e.number)} · план ${fmt(e.stages[0].start)}</option>`).join('')}</select></label><p id="preview" class="muted"></p>`,form=>change([[`shoot/${shoot.id}/number`,form.get('number')]]));
+  modal('Привязать съёмку к КПП',`<label>Выпуск<select id="number" name="number" required><option value="">Выберите выпуск</option>${options.map(e=>`<option value="${e.number}">Сезон ${e.season} · №${episodeNumber(e.number)}</option>`).join('')}</select></label><p id="preview" class="muted"></p>`,form=>change([[`shoot/${shoot.id}/number`,form.get('number')]]));
   dialog.querySelector('#number').onchange = event => {
     const e = planFor(Number(event.target.value));
     const x = e ? compute(e,shoot) : null;
-    dialog.querySelector('#preview').textContent = x ? `Сдвиг ${x.shift>0?'+':''}${x.shift} дн. Рыба до ${fmt(x.items.find(t=>t.key==='fish').end)}, сдача мастера до ${fmt(x.items.find(t=>t.key==='delivery').end)}.` : '';
+    dialog.querySelector('#preview').textContent = x ? `Прогноз: рыба до ${fmt(x.items.find(t=>t.key==='fish').end)}, сдача мастера до ${fmt(x.items.find(t=>t.key==='delivery').end)}.` : '';
   };
 }
 function shotSelect(shot) {
@@ -486,10 +485,9 @@ function addRelease(prefill) {
     notify('Выпуск добавлен.');
   });
   const form = dialog.querySelector('form');
-  const {season,number,date,editor}=form.elements;
+  const {season,number,editor}=form.elements;
   const resetFields=()=>{
     const episode=planFor(Number(number.value));
-    date.value=episode?.stages[0].start || '';
     editor.value=assignedEditor(episode);
     editor.dispatchEvent(new Event('change'));
   };
@@ -570,7 +568,6 @@ main.addEventListener('input',event=>{
   const search=document.querySelector('#search');
   search.focus();search.setSelectionRange(cursor,cursor);
 });
-main.addEventListener('change',event=>{if (event.target.id==='filter') {state.filter=event.target.value;render();}});
 window.addEventListener('online',synchronize);
 window.addEventListener('pageshow',synchronize);
 window.addEventListener('focus',synchronize);

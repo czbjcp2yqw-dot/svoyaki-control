@@ -42,8 +42,6 @@ export function forecast(episode, shoot, get) {
       ...base, originalStart:base.start, originalEnd:base.end, start, end, status, actualStart, actual,
       note:read('note'), link:read('link'),
       waiting: key === 'fish' && shoot && !shoot.plan && status !== 'done',
-      sourceIssue: base.sourceDays !== diff(base.end, base.start) + 1 ||
-        Boolean(!parallel && previous && base.start < previous.originalEnd),
     };
     items.push(item);
     if (!parallel) previous = item;
