@@ -1,4 +1,4 @@
-import {calendarFor,defaultEditors,editorKey,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs';
+import {calendarFor,defaultEditors,editorKey,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs?v=13';
 
 const main = document.querySelector('#main');
 const workspaceScroll = document.querySelector('#workspace-scroll') || document.scrollingElement;
@@ -41,7 +41,7 @@ async function disk(mode, run) {
 const get = key => disk('readonly', store => store.get(key));
 const put = (key,value) => disk('readwrite', store => store.put(value,key));
 const remove = key => disk('readwrite', store => store.delete(key));
-const retiredStageField = row => /^stage\/[^/]+\/(?:fishFix\/[^/]+|[^/]+\/owner)$/.test(row.field);
+const retiredStageField = row => /^stage\/[^/]+\/[^/]+\/owner$/.test(row.field);
 const changeList = async () => (await disk('readonly',store => store.getAll(IDBKeyRange.bound('op:','op;'))))
   .filter(row=>!retiredStageField(row));
 function savedOrQueued(field) {
@@ -260,7 +260,7 @@ async function downloadCalendar(season) {
   notify('Готовлю календарный план…');
   const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
     api('state'),
-    import('./calendar-pdf.mjs?v=12'),
+    import('./calendar-pdf.mjs?v=13'),
     import('./calendar-font.mjs'),
   ]);
   const readSaved=field=>snapshot.fields[field]?.value;
