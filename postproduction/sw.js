@@ -1,5 +1,5 @@
-const VERSION = 'svoyaki-shell-v18';
-const FILES = ['./','./styles.css?v=18','./app.mjs?v=18','./schedule.mjs?v=18','./calendar-pdf.mjs?v=18','./calendar-font.mjs','./manifest.webmanifest','./icon.png','./icon-512.png']
+const VERSION = 'svoyaki-shell-v19';
+const FILES = ['./','./styles.css?v=19','./app.mjs?v=19','./schedule.mjs?v=18','./calendar-pdf.mjs?v=18','./calendar-font.mjs','./manifest.webmanifest','./icon.png','./icon-512.png']
   .map(path=>new URL(path,self.registration.scope).href);
 self.addEventListener('install', event => event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('svoyaki-shell-')&&key!==VERSION).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));

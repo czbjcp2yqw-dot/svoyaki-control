@@ -98,7 +98,7 @@ function syncLabel() {
 async function synchronize() {
   if (state.busy || !navigator.onLine || (onPages && !teamSession)) {syncLabel();return;}
   state.busy = true;
-  const viewState = () => JSON.stringify([state.data?.member,state.data?.fields,state.data?.history,state.pending]);
+  const viewState = () => JSON.stringify([state.data?.member,state.data?.fields,state.pending]);
   const before = viewState();
   try {
     const remote = await api('state');
@@ -376,23 +376,6 @@ function fieldLabel(field) {
   const stage = planFor(Number(id))?.stages.find(x=>x.key===key);
   return `Сезон ${planFor(Number(id))?.season} · №${episodeNumber(Number(id))} · ${stage?.label || key} · ${({status:'статус',actualStart:'дата начала',actual:'дата завершения',due:'ранее заданный срок',note:'заметка',link:'ссылка'})[prop]}`;
 }
-function historyValue(row) {
-  if (row.field.endsWith('/create')) {
-    const project=JSON.parse(row.value);
-    return `${project.guest} · ${project.shot?'снято':'запланировано'} ${fmt(project.date)}${project.editor ? ' · Монтажёр: '+editorName(project.editor) : ''}`;
-  }
-  if (/^(shoot|release)\/[^/]+\/editor$/.test(row.field)) {
-    if (row.previous!=null) return `${editorName(row.previous)} → ${editorName(row.value)}`;
-    return row.value ? 'Назначен: '+editorName(row.value) : 'Назначение снято';
-  }
-  if (row.field.endsWith('/shot')) return row.value==='yes' ? 'Снято' : 'Запланировано';
-  return statuses[row.value] || row.value || 'Значение очищено';
-}
-function log() {
-  const history=state.data.history.filter(row=>!retiredStageField(row));
-  return title('КОМАНДА','История','Последние сохранённые изменения.')+
-    (history.length ? `<div class="stack">${history.map(row=>`<div class="card log"><strong>${sanitize(fieldLabel(row.field))}</strong><p>${sanitize(historyValue(row))}</p><small>${sanitize(row.name)} · ${new Date(row.created).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})}</small></div>`).join('')}</div>` : '<p class="muted">Изменений ещё нет</p>');
-}
 function render() {
   viewNeedsRefresh=false;
   syncLabel();
@@ -402,7 +385,7 @@ function render() {
     if (button.dataset.page === (state.page==='detail'?'episodes':state.page)) button.setAttribute('aria-current','page');
     else button.removeAttribute('aria-current');
   }
-  main.innerHTML = ({home:overview,episodes:list,calendar,graph,detail,settings,history:log}[state.page] || overview)();
+  main.innerHTML = ({home:overview,episodes:list,calendar,graph,detail,settings}[state.page] || overview)();
 }
 function modal(heading,html,save) {
   dialog.innerHTML = `<form class="fields"><div class="split"><h2>${sanitize(heading)}</h2><button type="button" data-action="close" aria-label="Закрыть">×</button></div>${html}<button class="primary">Сохранить</button></form>`;
