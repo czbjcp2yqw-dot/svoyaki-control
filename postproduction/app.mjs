@@ -1,4 +1,4 @@
-import {calendarFor,defaultEditors,editorKey,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs?v=13';
+import {calendarFor,defaultEditors,editorKey,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs?v=15';
 
 const main = document.querySelector('#main');
 const workspaceScroll = document.querySelector('#workspace-scroll') || document.scrollingElement;
@@ -41,7 +41,7 @@ async function disk(mode, run) {
 const get = key => disk('readonly', store => store.get(key));
 const put = (key,value) => disk('readwrite', store => store.put(value,key));
 const remove = key => disk('readwrite', store => store.delete(key));
-const retiredStageField = row => /^stage\/[^/]+\/[^/]+\/owner$/.test(row.field);
+const retiredStageField = row => /^stage\/[^/]+\/(?:shoot\/[^/]+|[^/]+\/owner)$/.test(row.field);
 const changeList = async () => (await disk('readonly',store => store.getAll(IDBKeyRange.bound('op:','op;'))))
   .filter(row=>!retiredStageField(row));
 function savedOrQueued(field) {
@@ -260,7 +260,7 @@ async function downloadCalendar(season) {
   notify('Готовлю календарный план…');
   const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
     api('state'),
-    import('./calendar-pdf.mjs?v=14'),
+    import('./calendar-pdf.mjs?v=15'),
     import('./calendar-font.mjs'),
   ]);
   const readSaved=field=>snapshot.fields[field]?.value;
@@ -280,7 +280,7 @@ async function downloadCalendar(season) {
 function calendar() {
   const {releases,unlinked}=calendarFor(state.data.episodes,shoots(),read,state.season);
   const stageDate=(item,shoot)=>fmt(item?.actual || (shoot ? item?.end : ''));
-  const highlights=[['shoot','Съёмка'],['fish','Рыба'],['premaster','Предмастер'],['delivery','Сдача мастера']];
+  const highlights=[['fish','Рыба'],['premaster','Предмастер'],['delivery','Сдача мастера']];
   return title('КПП · 2026/2027','Календарный план','Сроки по выпускам с учётом сохранённых дат, фактов и статусов.')+
     seasonPicker()+`<div class="calendar-download"><button data-action="calendar-pdf" data-season-download="${state.season}" class="download primary">Скачать PDF сезона ${state.season}</button><button data-action="calendar-pdf" class="download">Скачать оба сезона</button></div>
     <p class="muted">${state.pending.length?'Есть правки в очереди. В PDF попадут данные, которые уже сохранены на сервере.':'PDF формируется из сохранённых данных на момент скачивания.'}</p>
@@ -312,7 +312,7 @@ function detail() {
     ${!shoot && episode ? `<div class="actions">${newButton(episode.number)}</div>` : ''}
     ${!episode ? `<div class="notice">Календарь появится после подтверждения номера выпуска.</div>${manager()?'<button class="primary" data-action="bind">Связать с КПП</button>':''}` :
     `<h2>Этапы производства</h2><div class="stack">${calc.items.map(item=>{
-      const locked = item.key==='shoot' || !shoot;
+      const locked = !shoot;
       const done = item.status==='done';
       return `<div class="stage ${done?'done':''}">
         ${locked?'':`<button class="check" aria-label="${done?'Снять отметку':'Отметить готовым'}" data-check="${item.key}">${done?'✓':'□'}</button>`}

@@ -10,24 +10,27 @@ export function today() {
   return new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Moscow', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 }
 export function forecast(episode, shoot, get) {
-  const shift = shoot ? diff(shoot.date, episode.stages[0].start) : 0;
-  const filmed = Boolean(shoot && shoot.shot !== false);
+  const [shootWindow, ...stages] = episode.stages;
+  const shift = shoot ? diff(shoot.date, shootWindow.start) : 0;
   const items = [];
-  let previous;
-  for (const base of episode.stages) {
+  let previous = {
+    originalEnd:shootWindow.end,
+    end:shoot && shoot.shot!==false ? shoot.date : add(shootWindow.end,shift),
+  };
+  for (const base of stages) {
     const key = base.key;
     const prefix = `stage/${episode.number}/${key}/`;
     const read = name => get(prefix + name);
     const baseStart = add(base.start, shift);
-    const actualStart = key === 'shoot' ? (filmed ? shoot.date : '') : read('actualStart');
-    const actual = key === 'shoot' ? (filmed ? shoot.date : '') : read('actual');
-    const status = key === 'shoot' ? (filmed ? 'done' : 'todo') : read('status') || 'todo';
+    const actualStart = read('actualStart');
+    const actual = read('actual');
+    const status = read('status') || 'todo';
     const parallel = key === 'sound' || key === 'color';
     let start = baseStart;
     if (parallel) {
       const master = items.find(item => item.key === 'master');
       start = add(master.start, diff(base.start, master.originalStart));
-    } else if (previous) {
+    } else {
       const gap = Math.max(key === 'transfer' || key === 'fish' ? 1 : 0, diff(base.start, previous.originalEnd));
       start = latest(start, add(previous.actual || previous.end, gap));
     }
