@@ -6,6 +6,7 @@
 .season-picker small{font-size:.75rem}
 .release-toolbar{margin:1.15rem 0;align-items:flex-start}
 .release-toolbar .search{flex:1;min-width:0}
+.add-release{display:inline-grid;place-items:center;width:44px;height:44px;padding:0;flex:none;font-size:1.4rem;line-height:1}
 .graph-scale{display:flex;justify-content:space-between;padding:0 .35rem;margin:1.4rem 0 .65rem;color:var(--muted);font-size:.72rem;font-variant-numeric:tabular-nums}
 .graph-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
 .graph-row{display:grid;gap:.7rem;text-align:left;min-width:0;background:var(--card);padding:.9rem 1rem;border-radius:16px}
@@ -24,7 +25,6 @@
 .graph-row progress.complete::-webkit-progress-value{background:#a8d8ad}
 .graph-row progress.complete::-moz-progress-bar{background:#a8d8ad}
 @media(max-width:660px){.graph-grid{grid-template-columns:1fr}.season-picker button{padding:.7rem}.season-picker strong{font-size:.85rem}}
-@media(max-width:420px){.release-toolbar .search{max-width:100%;flex-basis:100%}}
 
 .calendar-download{display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0 .6rem}
 .download{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:.65rem .9rem;border:1px solid var(--line);border-radius:12px;color:var(--text);background:#2b2a23;text-decoration:none}

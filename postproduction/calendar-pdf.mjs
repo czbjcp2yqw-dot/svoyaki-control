@@ -54,7 +54,7 @@ function overview(canvas,season,releases) {
   )).sort();
   const start=allDates[0], end=allDates.at(-1);
   const span=start ? diff(end,start)+1 : 0;
-  heading(canvas,`Сезон ${season} — обзор производства`,`${releases.length} выпусков · ${start ? dateRange(start,end)+' · прогноз и фактические даты' : 'Даты пока не указаны'}`);
+  heading(canvas,`Сезон ${season} — обзор производства`,`${releases.length} выпусков · ${start ? dateRange(start,end)+' · прогноз и внесённые даты' : 'Даты пока не указаны'}`);
   phases.forEach((phase,i)=>{
     rect(48+i*150,112,11,6,phase.color);
     text(phase.label,65+i*150,119,10,phase.color);
@@ -91,12 +91,12 @@ function overview(canvas,season,releases) {
     });
   });
   rect(36,top+releases.length*rowH,1118,.65,palette.line);
-  text('Цветные полосы показывают окна работ по фазам. Прогноз, фактические даты и статусы указаны на следующих листах.',36,774,10,palette.muted);
+  text('Цветные полосы показывают окна работ по фазам. Прогноз, внесённые даты и статусы указаны на следующих листах.',36,774,10,palette.muted);
 }
 function details(canvas,season,releases) {
   const {text,rect}=canvas;
   const title=releases.map(release=>localNumber(release.number)).join(' / ');
-  heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · актуальный прогноз и фактические даты');
+  heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · актуальный прогноз и внесённые даты');
   const columns=[36,93,460,655,825,1015,1154];
   let y=115;
   for (const release of releases) {
@@ -106,7 +106,7 @@ function details(canvas,season,releases) {
     const input=shoot ? `Монтажный план: ${fmtDate(shoot.plan)} · расшифровка: ${fmtDate(shoot.transcript)}` : 'Дата съёмки не задана';
     text(input,685,y+17,9,palette.muted,450);
     y+=41;
-    ['Код','Этап','Актуальный прогноз','Фактическая дата начала','Фактическая дата завершения','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
+    ['Код','Этап','Актуальный прогноз','Дата начала','Дата завершения','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
     y+=6;
     release.items.forEach((item,index)=>{
       if (index%2===0) rect(36,y,1118,14,palette.soft);

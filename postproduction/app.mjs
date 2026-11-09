@@ -54,7 +54,7 @@ const episodeNumber = number => (number-1)%10+1;
 const seasonLabel = season => season===1 ? 'Сезон 1 · 2026' : 'Сезон 2 · с февраля 2027';
 const seasonPicker = () => `<div class="season-picker" role="group" aria-label="Сезон">${[1,2].map(season=>
   `<button data-season="${season}" aria-pressed="${state.season===season}"><strong>${seasonLabel(season)}</strong><small>10 выпусков</small></button>`).join('')}</div>`;
-const newButton = number => manager() ? `<button class="primary" data-action="add-release"${number ? ` data-number="${number}"` : ''}>＋ Добавить выпуск</button>` : '';
+const newButton = number => manager() ? `<button class="primary add-release" aria-label="Добавить выпуск" data-action="add-release"${number ? ` data-number="${number}"` : ''}>+</button>` : '';
 const compute = (episode,shoot) => forecast(episode,shoot,read);
 const assignedEditor = (episode,shoot) => releaseEditor(episode,shoot,savedOrQueued);
 const editorName = key => defaultEditors[key] || savedOrQueued(key) || 'Не назначен';
@@ -214,7 +214,7 @@ function overview() {
   const waiting = tasks.filter(task=>task.waiting || ['waiting','review'].includes(task.status));
   const taskCards = items => items.length ? items.map(task=>`<button class="card" data-card="${task.shoot.id}"><b>${sanitize(task.label)}</b><small>${sanitize(task.shoot.guest)} · ${fmt(due(task))}</small></button>`).join('') : '<p class="muted">Пока пусто</p>';
   return title('ПРОИЗВОДСТВО · 2026/2027','СВОяки','Съёмки, монтаж, согласование и сдача выпусков.')+
-    `<div class="grid"><div class="card stat"><small>Фактические съёмки</small><strong>${shots.filter(s=>s.shot).length}</strong></div><div class="card stat"><small>Выпуски в КПП</small><strong>${state.data.episodes.length}</strong></div><div class="card stat"><small>Нужно подтвердить номер</small><strong>${shots.filter(s=>!s.number).length}</strong></div></div>
+    `<div class="grid"><div class="card stat"><small>Проведённые съёмки</small><strong>${shots.filter(s=>s.shot).length}</strong></div><div class="card stat"><small>Выпуски в КПП</small><strong>${state.data.episodes.length}</strong></div><div class="card stat"><small>Нужно подтвердить номер</small><strong>${shots.filter(s=>!s.number).length}</strong></div></div>
     <h2>Сегодня</h2><div class="grid">${taskCards(upcoming.filter(task=>due(task)===now))}</div>
     <h2>Просрочено</h2><div class="grid">${taskCards(overdue)}</div><h2>Ближайшие 7 дней</h2><div class="grid">${taskCards(upcoming.filter(task=>due(task)>now && (Date.parse(due(task))-Date.parse(now))/86400000<=7))}</div>
     <h2>Ожидаем материалы или согласование</h2><div class="grid">${taskCards(waiting)}</div><h2>Отснятые выпуски</h2><div class="grid">${shots.filter(s=>s.shot).map(shoot=>card(shoot,planFor(shoot.number))).join('')}</div>`;
@@ -260,7 +260,7 @@ async function downloadCalendar(season) {
   notify('Готовлю календарный план…');
   const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
     api('state'),
-    import('./calendar-pdf.mjs?v=13'),
+    import('./calendar-pdf.mjs?v=14'),
     import('./calendar-font.mjs'),
   ]);
   const readSaved=field=>snapshot.fields[field]?.value;
@@ -318,8 +318,8 @@ function detail() {
         ${locked?'':`<button class="check" aria-label="${done?'Снять отметку':'Отметить готовым'}" data-check="${item.key}">${done?'✓':'□'}</button>`}
         <button data-stage="${item.key}" ${locked?'disabled':''}><strong>${sanitize(item.label)} · ${sanitize(statuses[item.status])}</strong>
         ${shoot?`<small>Прогноз · ${fmt(item.start)}–${fmt(item.end)}</small>`:''}
-        <small>Фактическая дата начала · ${fmt(item.actualStart)}</small>
-        <small>Фактическая дата завершения · ${fmt(item.actual)}</small>
+        <small>Дата начала · ${fmt(item.actualStart)}</small>
+        <small>Дата завершения · ${fmt(item.actual)}</small>
         ${item.waiting?'<small>Ожидается монтажный план. Прогноз предварительный.</small>':''}
         </button></div>`;
     }).join('')}</div>`}`;
@@ -341,7 +341,7 @@ function fieldLabel(field) {
   }
   if (group==='shoot') return `${shoots().find(x=>x.id===id)?.guest || id} · ${({number:'привязка к КПП',date:'съёмка',plan:'сценарий',transcript:'расшифровка',link:'материалы',create:'добавление выпуска',shot:'статус съёмки',editor:'монтажёр'})[key]}`;
   const stage = planFor(Number(id))?.stages.find(x=>x.key===key);
-  return `Сезон ${planFor(Number(id))?.season} · №${episodeNumber(Number(id))} · ${stage?.label || key} · ${({status:'статус',actualStart:'фактическая дата начала',actual:'фактическая дата завершения',due:'ранее заданный срок',note:'заметка',link:'ссылка'})[prop]}`;
+  return `Сезон ${planFor(Number(id))?.season} · №${episodeNumber(Number(id))} · ${stage?.label || key} · ${({status:'статус',actualStart:'дата начала',actual:'дата завершения',due:'ранее заданный срок',note:'заметка',link:'ссылка'})[prop]}`;
 }
 function historyValue(row) {
   if (row.field.endsWith('/create')) {
@@ -421,7 +421,7 @@ function openStage(key) {
   const item = compute(episode,shoot).items.find(x=>x.key===key);
   const prefix = `stage/${episode.number}/${key}/`;
   modal(item.label,`<label>Статус<select name="status">${Object.entries(statuses).map(([id,label])=>`<option value="${id}" ${item.status===id?'selected':''}>${label}</option>`).join('')}</select></label>
-    ${input('Фактическая дата начала','actualStart',item.actualStart,'date')}${input('Фактическая дата завершения','actual',item.actual,'date')}
+    ${input('Дата начала','actualStart',item.actualStart,'date')}${input('Дата завершения','actual',item.actual,'date')}
     ${input('Ссылка на материалы этапа','link',item.link,'url')}${external(item.link,'Открыть ссылку этапа')}
     <label>Комментарий или причина ожидания<textarea name="note" maxlength="2000">${sanitize(item.note)}</textarea></label>`,async form=>{
     const entries = [...form.entries()];
