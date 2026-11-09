@@ -19,7 +19,7 @@ export function forecast(episode, shoot, get) {
     const prefix = `stage/${episode.number}/${key}/`;
     const read = name => get(prefix + name);
     const baseStart = add(base.start, shift);
-    const pinned = read('due');
+    const actualStart = key === 'shoot' ? (filmed ? shoot.date : '') : read('actualStart');
     const actual = key === 'shoot' ? (filmed ? shoot.date : '') : read('actual');
     const status = key === 'shoot' ? (filmed ? 'done' : 'todo') : read('status') || 'todo';
     const parallel = key === 'sound' || key === 'color';
@@ -38,10 +38,9 @@ export function forecast(episode, shoot, get) {
     }
     const end = add(start, Math.max(0, diff(base.end, base.start)));
     const item = {
-      ...base, originalStart:base.start, originalEnd:base.end, start, end, status, actual, pinned,
+      ...base, originalStart:base.start, originalEnd:base.end, start, end, status, actualStart, actual,
       note:read('note'), owner:read('owner'), link:read('link'),
       waiting: key === 'fish' && shoot && !shoot.plan && status !== 'done',
-      conflict: Boolean(pinned && end > pinned),
       sourceIssue: base.sourceDays !== diff(base.end, base.start) + 1 ||
         Boolean(!parallel && previous && base.start < previous.originalEnd),
     };

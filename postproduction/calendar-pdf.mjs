@@ -49,7 +49,7 @@ function heading(canvas,title,subtitle) {
 }
 function overview(canvas,season,releases) {
   const {text,rect}=canvas;
-  const allDates=releases.flatMap(release=>release.items.flatMap(item=>[item.start,item.end,item.actual,item.pinned].filter(Boolean))).sort();
+  const allDates=releases.flatMap(release=>release.items.flatMap(item=>[item.start,item.end,item.actualStart,item.actual].filter(Boolean))).sort();
   const start=allDates[0], end=allDates.at(-1);
   const span=diff(end,start)+1;
   heading(canvas,`Сезон ${season} — обзор производства`,`${releases.length} выпусков · ${dateRange(start,end)} · актуальный прогноз по сохранённым данным`);
@@ -80,8 +80,8 @@ function overview(canvas,season,releases) {
     text(`${release.percent}% · ${release.closed} из ${release.total} этапов`,36,y+47,9,palette.muted,270);
     phases.forEach((phase,lane)=>{
       release.items.filter(item=>phase.stages.includes(item.key) && item.status!=='skipped').forEach(item=>{
-        const from=item.actual && item.actual<item.start ? item.actual : item.start;
         const to=item.actual || item.end;
+        const from=item.actualStart || (item.start<to ? item.start : to);
         const x=gridX+diff(from,start)*scale;
         rect(x,y+7+lane*9,Math.max(1.25,(diff(to,from)+1)*scale),5.5,phase.color);
       });
@@ -94,7 +94,7 @@ function details(canvas,season,releases) {
   const {text,rect}=canvas;
   const title=releases.map(release=>localNumber(release.number)).join(' / ');
   heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · исходные сроки КПП, актуальный прогноз и фактические даты');
-  const columns=[36,93,405,586,767,875,990,1154];
+  const columns=[36,93,380,540,710,854,1015,1154];
   let y=115;
   for (const release of releases) {
     rect(36,y,1118,25,palette.pale);
@@ -103,12 +103,12 @@ function details(canvas,season,releases) {
     const input=shoot ? `Монтажный план: ${fmtDate(shoot.plan)} · расшифровка: ${fmtDate(shoot.transcript)}` : 'Съёмка по исходному КПП';
     text(input,685,y+17,9,palette.muted,450);
     y+=41;
-    ['Код','Этап','Исходный КПП','Актуальный прогноз','Факт','Закреплённый срок','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
+    ['Код','Этап','Исходный КПП','Актуальный прогноз','Фактическая дата начала','Фактическая дата завершения','Статус'].forEach((value,i)=>text(value,columns[i]+3,y,9,palette.muted,columns[i+1]-columns[i]-5));
     y+=6;
     release.items.forEach((item,index)=>{
       if (index%2===0) rect(36,y,1118,14,palette.soft);
       const label=item.sourceIssue ? item.label+' *' : item.label;
-      const cells=[item.code,label,dateRange(item.originalStart,item.originalEnd),dateRange(item.start,item.end),fmtDate(item.actual),fmtDate(item.pinned),statuses[item.status]||item.status];
+      const cells=[item.code,label,dateRange(item.originalStart,item.originalEnd),dateRange(item.start,item.end),fmtDate(item.actualStart),fmtDate(item.actual),statuses[item.status]||item.status];
       cells.forEach((value,i)=>text(value,columns[i]+3,y+10,9,i===6 && item.status==='done'?'#237054':palette.ink,columns[i+1]-columns[i]-5));
       y+=14;
     });

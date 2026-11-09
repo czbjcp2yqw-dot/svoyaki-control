@@ -206,7 +206,7 @@ function overview() {
     const next = compute(planFor(shoot.number),shoot).items.find(item=>!['done','skipped'].includes(item.status));
     return next ? [{...next,shoot}] : [];
   });
-  const due = task => task.pinned || task.end;
+  const due = task => task.end;
   const now = day();
   const overdue = tasks.filter(task=>due(task)<now && !task.waiting && task.status!=='waiting');
   const upcoming = tasks.filter(task=>due(task)>=now && !task.waiting && task.status!=='waiting');
@@ -278,7 +278,7 @@ async function downloadCalendar(season) {
 }
 function calendar() {
   const {releases,unlinked}=calendarFor(state.data.episodes,shoots(),read,state.season);
-  const stageDate=item=>item ? fmt(item.actual || item.pinned || item.end) : '—';
+  const stageDate=item=>item ? fmt(item.actual || item.end) : '—';
   const highlights=[['shoot','Съёмка'],['fish','Рыба'],['premaster','Предмастер'],['delivery','Сдача мастера']];
   return title('КПП · 2026/2027','Календарный план','Сроки по выпускам с учётом сохранённых дат, фактов и статусов.')+
     seasonPicker()+`<div class="calendar-download"><button data-action="calendar-pdf" data-season-download="${state.season}" class="download primary">Скачать PDF сезона ${state.season}</button><button data-action="calendar-pdf" class="download">Скачать оба сезона</button></div>
@@ -316,10 +316,10 @@ function detail() {
       return `<div class="stage ${done?'done':''}">
         ${locked?'':`<button class="check" aria-label="${done?'Снять отметку':'Отметить готовым'}" data-check="${item.key}">${done?'✓':'□'}</button>`}
         <button data-stage="${item.key}" ${locked?'disabled':''}><strong>${sanitize(item.label)} · ${sanitize(statuses[item.status])}</strong>
-        <small>КПП ${fmt(item.originalStart)}–${fmt(item.originalEnd)} · прогноз ${fmt(item.start)}–${fmt(item.end)} · факт ${fmt(item.actual)}</small>
-        ${item.pinned?`<small>Закреплённый срок ${fmt(item.pinned)}</small>`:''}
+        <small>КПП ${fmt(item.originalStart)}–${fmt(item.originalEnd)} · прогноз ${fmt(item.start)}–${fmt(item.end)}</small>
+        <small>Фактическая дата начала · ${fmt(item.actualStart)}</small>
+        <small>Фактическая дата завершения · ${fmt(item.actual)}</small>
         ${item.waiting?'<small>Ожидается монтажный план. Прогноз предварительный.</small>':''}
-        ${item.conflict?'<small class="danger">Прогноз позже закреплённого срока.</small>':''}
         ${item.sourceIssue?'<small>Исходное окно и длительность требуют сверки.</small>':''}
         ${stageOwner(item,episode,shoot)?`<small>Ответственный: ${sanitize(stageOwner(item,episode,shoot))}</small>`:''}</button></div>`;
     }).join('')}</div>`}`;
@@ -341,7 +341,7 @@ function fieldLabel(field) {
   }
   if (group==='shoot') return `${shoots().find(x=>x.id===id)?.guest || id} · ${({number:'привязка к КПП',date:'съёмка',plan:'сценарий',transcript:'расшифровка',link:'материалы',create:'добавление выпуска',shot:'статус съёмки',editor:'монтажёр'})[key]}`;
   const stage = planFor(Number(id))?.stages.find(x=>x.key===key);
-  return `Сезон ${planFor(Number(id))?.season} · №${episodeNumber(Number(id))} · ${stage?.label || key} · ${({status:'статус',actual:'факт',due:'срок',note:'заметка',owner:'ответственный',link:'ссылка'})[prop]}`;
+  return `Сезон ${planFor(Number(id))?.season} · №${episodeNumber(Number(id))} · ${stage?.label || key} · ${({status:'статус',actualStart:'фактическая дата начала',actual:'фактическая дата завершения',due:'ранее заданный срок',note:'заметка',owner:'ответственный',link:'ссылка'})[prop]}`;
 }
 function historyValue(row) {
   if (row.field.endsWith('/create')) {
@@ -420,7 +420,7 @@ function openStage(key) {
   const item = compute(episode,shoot).items.find(x=>x.key===key);
   const prefix = `stage/${episode.number}/${key}/`;
   modal(item.label,`<label>Статус<select name="status">${Object.entries(statuses).map(([id,label])=>`<option value="${id}" ${item.status===id?'selected':''}>${label}</option>`).join('')}</select></label>
-    ${input('Фактическая дата завершения','actual',item.actual,'date')}${manager()?input('Закреплённый срок','due',item.pinned,'date'):''}
+    ${input('Фактическая дата начала','actualStart',item.actualStart,'date')}${input('Фактическая дата завершения','actual',item.actual,'date')}
     ${input('Ответственный','owner',item.owner)}${!item.owner && stageOwner(item,episode,shoot)?`<small class="muted">По умолчанию: ${sanitize(stageOwner(item,episode,shoot))}</small>`:''}${input('Ссылка на материалы этапа','link',item.link,'url')}${external(item.link,'Открыть ссылку этапа')}
     <label>Комментарий или причина ожидания<textarea name="note" maxlength="2000">${sanitize(item.note)}</textarea></label>`,async form=>{
     const entries = [...form.entries()];
