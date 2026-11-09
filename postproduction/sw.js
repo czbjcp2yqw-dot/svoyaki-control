@@ -1,4 +1,4 @@
-const VERSION = 'svoyaki-shell-v9';
+const VERSION = 'svoyaki-shell-v10';
 const FILES = ['./','./styles.css','./app.mjs','./schedule.mjs','./calendar-pdf.mjs','./calendar-font.mjs','./manifest.webmanifest','./icon.png','./icon-512.png']
   .map(path=>new URL(path,self.registration.scope).href);
 self.addEventListener('install', event => event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())));

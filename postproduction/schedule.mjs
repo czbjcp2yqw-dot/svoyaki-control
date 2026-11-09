@@ -9,12 +9,13 @@ export const statuses = {
 export function today() {
   return new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Moscow', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 }
+export const activeStages = stages => stages.filter(stage=>stage.key!=='fishFix');
 export function forecast(episode, shoot, get) {
   const shift = shoot ? diff(shoot.date, episode.stages[0].start) : 0;
   const filmed = Boolean(shoot && shoot.shot !== false);
   const items = [];
   let previous;
-  for (const base of episode.stages) {
+  for (const base of activeStages(episode.stages)) {
     const key = base.key;
     const prefix = `stage/${episode.number}/${key}/`;
     const read = name => get(prefix + name);

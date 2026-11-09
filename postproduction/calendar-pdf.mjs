@@ -5,7 +5,7 @@ const PAGE_H = 842;
 const palette = {ink:'#142E47', muted:'#4D6277', line:'#CAD6E1', pale:'#EEF3F8', soft:'#F6F9FC', white:'#FFFFFF'};
 const phases = [
   {label:'Съёмка',color:'#A56210',stages:['shoot']},
-  {label:'Монтаж / правки',color:'#197779',stages:['transfer','fish','fishReview','fishFix','premaster','preReview','preFix','iriFix','masterReview','finalFix']},
+  {label:'Монтаж / правки',color:'#197779',stages:['transfer','fish','fishReview','premaster','preReview','preFix','iriFix','masterReview','finalFix']},
   {label:'ИРИ / отсмотры',color:'#7856A5',stages:['preIri','masterIri']},
   {label:'Мастер',color:'#3B75A9',stages:['master','sound','color']},
   {label:'Сдачи / окно',color:'#263E58',stages:['delivery','final']},

@@ -40,9 +40,9 @@ async function disk(mode, run) {
 const get = key => disk('readonly', store => store.get(key));
 const put = (key,value) => disk('readwrite', store => store.put(value,key));
 const remove = key => disk('readwrite', store => store.delete(key));
-const retiredStageOwner = row => /^stage\/[^/]+\/[^/]+\/owner$/.test(row.field);
+const retiredStageField = row => /^stage\/[^/]+\/(?:fishFix\/[^/]+|[^/]+\/owner)$/.test(row.field);
 const changeList = async () => (await disk('readonly',store => store.getAll(IDBKeyRange.bound('op:','op;'))))
-  .filter(row=>!retiredStageOwner(row));
+  .filter(row=>!retiredStageField(row));
 function savedOrQueued(field) {
   return state.pending.findLast(op=>op.field===field && (!op.error || !/\/(create|number)$/.test(field)))?.value ?? state.data.fields[field]?.value;
 }
@@ -356,7 +356,7 @@ function historyValue(row) {
   return statuses[row.value] || row.value || 'Значение очищено';
 }
 function log() {
-  const history=state.data.history.filter(row=>!retiredStageOwner(row));
+  const history=state.data.history.filter(row=>!retiredStageField(row));
   return title('КОМАНДА','История','Последние сохранённые изменения.')+
     (history.length ? `<div class="stack">${history.map(row=>`<div class="card log"><strong>${sanitize(fieldLabel(row.field))}</strong><p>${sanitize(historyValue(row))}</p><small>${sanitize(row.name)} · ${new Date(row.created).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})}</small></div>`).join('')}</div>` : '<p class="muted">Изменений ещё нет</p>');
 }
