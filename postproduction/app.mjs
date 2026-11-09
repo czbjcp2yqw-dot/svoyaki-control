@@ -1,6 +1,7 @@
 import {calendarFor,defaultEditors,editorKey,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs';
 
 const main = document.querySelector('#main');
+const workspaceScroll = document.querySelector('#workspace-scroll') || document.scrollingElement;
 const nav = document.querySelector('#nav');
 const dialog = document.querySelector('#dialog');
 const syncBadge = document.querySelector('#sync');
@@ -500,7 +501,7 @@ function addRelease(prefill) {
   number.onchange=resetFields;
   showNumbers(first.number);
 }
-function go(page) {state.page=page;render();window.scrollTo(0,0);}
+function go(page) {state.page=page;render();workspaceScroll.scrollTop=0;}
 document.addEventListener('click',async event=>{
   const button = event.target.closest('button');
   if (!button) return;
