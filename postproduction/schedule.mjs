@@ -39,7 +39,7 @@ export function forecast(episode, shoot, get) {
     const end = add(start, Math.max(0, diff(base.end, base.start)));
     const item = {
       ...base, originalStart:base.start, originalEnd:base.end, start, end, status, actualStart, actual,
-      note:read('note'), owner:read('owner'), link:read('link'),
+      note:read('note'), link:read('link'),
       waiting: key === 'fish' && shoot && !shoot.plan && status !== 'done',
       sourceIssue: base.sourceDays !== diff(base.end, base.start) + 1 ||
         Boolean(!parallel && previous && base.start < previous.originalEnd),

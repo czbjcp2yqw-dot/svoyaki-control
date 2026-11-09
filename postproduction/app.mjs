@@ -40,7 +40,9 @@ async function disk(mode, run) {
 const get = key => disk('readonly', store => store.get(key));
 const put = (key,value) => disk('readwrite', store => store.put(value,key));
 const remove = key => disk('readwrite', store => store.delete(key));
-const changeList = () => disk('readonly',store => store.getAll(IDBKeyRange.bound('op:','op;')));
+const retiredStageOwner = row => /^stage\/[^/]+\/[^/]+\/owner$/.test(row.field);
+const changeList = async () => (await disk('readonly',store => store.getAll(IDBKeyRange.bound('op:','op;'))))
+  .filter(row=>!retiredStageOwner(row));
 function savedOrQueued(field) {
   return state.pending.findLast(op=>op.field===field && (!op.error || !/\/(create|number)$/.test(field)))?.value ?? state.data.fields[field]?.value;
 }
@@ -53,11 +55,9 @@ const seasonPicker = () => `<div class="season-picker" role="group" aria-label="
   `<button data-season="${season}" aria-pressed="${state.season===season}"><strong>${seasonLabel(season)}</strong><small>10 выпусков</small></button>`).join('')}</div>`;
 const newButton = number => manager() ? `<button class="primary" data-action="add-release"${number ? ` data-number="${number}"` : ''}>＋ Добавить выпуск</button>` : '';
 const compute = (episode,shoot) => forecast(episode,shoot,read);
-const editingStages = new Set(['fish','fishFix','premaster','preFix','iriFix','master','finalFix']);
 const assignedEditor = (episode,shoot) => releaseEditor(episode,shoot,savedOrQueued);
 const editorName = key => defaultEditors[key] || savedOrQueued(key) || 'Не назначен';
 const editorLabel = (episode,shoot) => editorName(assignedEditor(episode,shoot));
-const stageOwner = (item,episode,shoot) => item.owner || (editingStages.has(item.key) && assignedEditor(episode,shoot) ? editorLabel(episode,shoot) : '');
 const editorField = (episode,shoot) => shoot ? `shoot/${shoot.id}/editor` : `release/${episode.number}/editor`;
 const manager = () => state.data.member.role !== 'member';
 const pill = value => `<span class="pill">${sanitize(value)}</span>`;
@@ -321,7 +321,7 @@ function detail() {
         <small>Фактическая дата завершения · ${fmt(item.actual)}</small>
         ${item.waiting?'<small>Ожидается монтажный план. Прогноз предварительный.</small>':''}
         ${item.sourceIssue?'<small>Исходное окно и длительность требуют сверки.</small>':''}
-        ${stageOwner(item,episode,shoot)?`<small>Ответственный: ${sanitize(stageOwner(item,episode,shoot))}</small>`:''}</button></div>`;
+        </button></div>`;
     }).join('')}</div>`}`;
 }
 function settings() {
@@ -341,7 +341,7 @@ function fieldLabel(field) {
   }
   if (group==='shoot') return `${shoots().find(x=>x.id===id)?.guest || id} · ${({number:'привязка к КПП',date:'съёмка',plan:'сценарий',transcript:'расшифровка',link:'материалы',create:'добавление выпуска',shot:'статус съёмки',editor:'монтажёр'})[key]}`;
   const stage = planFor(Number(id))?.stages.find(x=>x.key===key);
-  return `Сезон ${planFor(Number(id))?.season} · №${episodeNumber(Number(id))} · ${stage?.label || key} · ${({status:'статус',actualStart:'фактическая дата начала',actual:'фактическая дата завершения',due:'ранее заданный срок',note:'заметка',owner:'ответственный',link:'ссылка'})[prop]}`;
+  return `Сезон ${planFor(Number(id))?.season} · №${episodeNumber(Number(id))} · ${stage?.label || key} · ${({status:'статус',actualStart:'фактическая дата начала',actual:'фактическая дата завершения',due:'ранее заданный срок',note:'заметка',link:'ссылка'})[prop]}`;
 }
 function historyValue(row) {
   if (row.field.endsWith('/create')) {
@@ -356,8 +356,9 @@ function historyValue(row) {
   return statuses[row.value] || row.value || 'Значение очищено';
 }
 function log() {
+  const history=state.data.history.filter(row=>!retiredStageOwner(row));
   return title('КОМАНДА','История','Последние сохранённые изменения.')+
-    (state.data.history.length ? `<div class="stack">${state.data.history.map(row=>`<div class="card log"><strong>${sanitize(fieldLabel(row.field))}</strong><p>${sanitize(historyValue(row))}</p><small>${sanitize(row.name)} · ${new Date(row.created).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})}</small></div>`).join('')}</div>` : '<p class="muted">Изменений ещё нет</p>');
+    (history.length ? `<div class="stack">${history.map(row=>`<div class="card log"><strong>${sanitize(fieldLabel(row.field))}</strong><p>${sanitize(historyValue(row))}</p><small>${sanitize(row.name)} · ${new Date(row.created).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})}</small></div>`).join('')}</div>` : '<p class="muted">Изменений ещё нет</p>');
 }
 function render() {
   viewNeedsRefresh=false;
@@ -421,7 +422,7 @@ function openStage(key) {
   const prefix = `stage/${episode.number}/${key}/`;
   modal(item.label,`<label>Статус<select name="status">${Object.entries(statuses).map(([id,label])=>`<option value="${id}" ${item.status===id?'selected':''}>${label}</option>`).join('')}</select></label>
     ${input('Фактическая дата начала','actualStart',item.actualStart,'date')}${input('Фактическая дата завершения','actual',item.actual,'date')}
-    ${input('Ответственный','owner',item.owner)}${!item.owner && stageOwner(item,episode,shoot)?`<small class="muted">По умолчанию: ${sanitize(stageOwner(item,episode,shoot))}</small>`:''}${input('Ссылка на материалы этапа','link',item.link,'url')}${external(item.link,'Открыть ссылку этапа')}
+    ${input('Ссылка на материалы этапа','link',item.link,'url')}${external(item.link,'Открыть ссылку этапа')}
     <label>Комментарий или причина ожидания<textarea name="note" maxlength="2000">${sanitize(item.note)}</textarea></label>`,async form=>{
     const entries = [...form.entries()];
     if (form.get('status')==='done' && !form.get('actual')) entries.push(['actual',day()]);
