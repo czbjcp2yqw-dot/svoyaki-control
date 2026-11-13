@@ -1,4 +1,4 @@
-import {add,diff,finishDelta,statuses,today} from './schedule.mjs?v=18';
+import {add,diff,finishDelta,statuses,today} from './schedule.mjs?v=20';
 
 const PAGE_W = 1191;
 const PAGE_H = 842;
@@ -76,7 +76,7 @@ function overview(canvas,season,releases) {
   releases.forEach((release,i)=>{
     const y=top+i*rowH;
     rect(36,y,1118,.65,palette.line);
-    text(`№ ${localNumber(release.number)}  ${displayLabel(release)}`,36,y+16,12,palette.ink,270);
+    text(`№ ${localNumber(release.displayNumber ?? release.number)}  ${displayLabel(release)}`,36,y+16,12,palette.ink,270);
     text(release.current?.label || 'Все этапы закрыты',36,y+33,10,palette.muted,270);
     text(`${release.percent}% · ${release.closed} из ${release.total} этапов`,36,y+47,9,palette.muted,270);
     phases.forEach((phase,lane)=>{
@@ -94,13 +94,13 @@ function overview(canvas,season,releases) {
 }
 function details(canvas,season,releases) {
   const {text,rect}=canvas;
-  const title=releases.map(release=>localNumber(release.number)).join(' / ');
+  const title=releases.map(release=>localNumber(release.displayNumber ?? release.number)).join(' / ');
   heading(canvas,`Сезон ${season} — выпуски ${title}`,'Детальный график · исходный КПП, прогноз и факт');
   const columns=[36,82,337,478,619,715,810,925,1020,1154];
   let y=115;
   for (const release of releases) {
     rect(36,y,1118,25,palette.pale);
-    text(`№ ${localNumber(release.number)} · ${displayLabel(release)}`,44,y+17,13,palette.ink,600);
+    text(`№ ${localNumber(release.displayNumber ?? release.number)} · ${displayLabel(release)}`,44,y+17,13,palette.ink,600);
     const shoot=release.shoot;
     const input=shoot ? `Монтажный план: ${fmtDate(shoot.plan)} · расшифровка: ${fmtDate(shoot.transcript)}` : 'Дата съёмки не задана';
     text(input,685,y+17,9,palette.muted,450);
@@ -110,7 +110,7 @@ function details(canvas,season,releases) {
     release.items.forEach((item,index)=>{
       if (index%2===0) rect(36,y,1118,14,palette.soft);
       const cells=[
-        item.code,item.label,dateRange(item.originalStart,item.originalEnd),
+        item.code.replace(/^\d+/,String(release.displayNumber ?? release.number)),item.label,dateRange(item.originalStart,item.originalEnd),
         shoot ? dateRange(item.start,item.end) : '—',finishDelta(shoot ? item.end : '',item.originalEnd),
         fmtDate(item.actualStart),fmtDate(item.actual),finishDelta(item.actual,item.originalEnd),statuses[item.status]||item.status,
       ];

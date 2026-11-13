@@ -1,4 +1,4 @@
-import {calendarFor,defaultEditors,editorKey,finishDelta,forecast,normalizeEditorName,progressFor,releaseEditor,resolveShoots,statuses,today,validEditorName} from './schedule.mjs?v=18';
+import {calendarFor,defaultEditors,editorKey,finishDelta,forecast,normalizeEditorName,progressFor,releaseEditor,releaseNumber,resolveShoots,statuses,today,validEditorName} from './schedule.mjs?v=20';
 
 const main = document.querySelector('#main');
 const workspaceScroll = document.querySelector('#workspace-scroll') || document.scrollingElement;
@@ -50,9 +50,10 @@ function savedOrQueued(field) {
   return state.pending.findLast(op=>op.field===field && (!op.error || !/\/(create|number)$/.test(field)))?.value ?? state.data.fields[field]?.value;
 }
 const read = field => savedOrQueued(field) ?? '';
-const shoots = () => resolveShoots(state.data.episodes,state.data.shoots,savedOrQueued);
+const shoots = () => resolveShoots(state.data.episodes,state.data.shoots,savedOrQueued)
+  .sort((a,b)=>releaseNumber(a.number,read)-releaseNumber(b.number,read));
 const planFor = number => state.data.episodes.find(episode => episode.number === number);
-const episodeNumber = number => (number-1)%10+1;
+const episodeNumber = number => (releaseNumber(number,read)-1)%10+1;
 const seasonLabel = season => season===1 ? 'Сезон 1 · 2026' : 'Сезон 2 · с февраля 2027';
 const seasonPicker = () => `<div class="season-picker" role="group" aria-label="Сезон">${[1,2].map(season=>
   `<button data-season="${season}" aria-pressed="${state.season===season}"><strong>${seasonLabel(season)}</strong><small>10 выпусков</small></button>`).join('')}</div>`;
@@ -227,7 +228,8 @@ function list() {
   const shots = shoots();
   const q = state.search.toLowerCase().trim();
   const match = (shoot,episode) => `${shoot?.guest || ''} ${episode ? episodeNumber(episode.number) : ''} ${shoot?.date || ''} ${shoot ? fmt(shoot.date) : ''}`.toLowerCase().includes(q);
-  const seasonEpisodes = state.data.episodes.filter(episode=>episode.season===state.season);
+  const seasonEpisodes = state.data.episodes.filter(episode=>episode.season===state.season)
+    .sort((a,b)=>episodeNumber(a.number)-episodeNumber(b.number));
   const registered = shots.filter(shoot=>seasonEpisodes.some(e=>e.number===shoot.number))
     .filter(shoot=>match(shoot,planFor(shoot.number)));
   const unlinked = shots.filter(shoot=>!shoot.number && match(shoot,null));
@@ -241,7 +243,8 @@ function list() {
 }
 function graph() {
   const shots = shoots();
-  const episodes = state.data.episodes.filter(e=>e.season===state.season);
+  const episodes = state.data.episodes.filter(e=>e.season===state.season)
+    .sort((a,b)=>episodeNumber(a.number)-episodeNumber(b.number));
   const rows = episodes.map(episode=>{
     const shoot = shots.find(item=>item.number===episode.number);
     const {percent,closed,total,current} = progressFor(compute(episode,shoot).items);
@@ -272,7 +275,7 @@ async function prepareCalendarPdf(season) {
   try {
     const [snapshot,{renderCalendarPdf},{calendarFont}]=await Promise.all([
       api('state'),
-      import('./calendar-pdf.mjs?v=18'),
+      import('./calendar-pdf.mjs?v=20'),
       import('./calendar-font.mjs'),
     ]);
     if (state.data?.member.id!==memberId || snapshot.member.id!==memberId) return;
@@ -340,6 +343,7 @@ function detail() {
   const overline = episode ? `СЕЗОН ${episode.season} · ВЫПУСК №${episodeNumber(episode.number)}` : 'СЪЁМКА · НУЖНО СВЯЗАТЬ С КПП';
   return `<button data-page="episodes">← Выпуски</button><div class="actions">${title(overline,shoot?.guest || 'Выпуск №'+episodeNumber(episode.number),
     shoot ? `${shoot.shot?'Факт':'План'} съёмки ${fmt(shoot.date)}` : 'Дата съёмки не задана')}</div>
+    ${episode && manager()?'<div class="actions"><button data-action="renumber">Изменить номер выпуска</button></div>':''}
     <div class="panel editor-panel"><div class="split"><div><small>Монтажёр выпуска</small><div><strong>${sanitize(editorLabel(episode,shoot))}</strong></div></div>${manager()?'<button data-action="editor">Изменить монтажёра</button>':''}</div></div>
     ${shoot ? `<div class="panel"><div class="split"><div><h3>Материалы и входящие</h3><p class="muted">Монтажный план ${fmt(shoot.plan)} · расшифровка ${fmt(shoot.transcript)}</p>${external(shoot.link,'Открыть папку материалов') || '<small>Ссылка на папку пока не добавлена</small>'}</div><button data-action="shoot">Изменить</button></div></div>` : ''}
     ${!shoot && episode ? `<div class="actions">${newButton(episode.number)}</div>` : ''}
@@ -366,6 +370,7 @@ function settings() {
     ${state.pending.some(op=>op.error)?`<h2>Изменения для сверки</h2>${state.pending.filter(op=>op.error).map(op=>`<div class="notice"><b>${sanitize(fieldLabel(op.field))}</b><p>${sanitize(op.error)} Моя версия — ${sanitize(op.value)}. На сервере — ${sanitize(op.server?.value || 'пусто')}.</p><button data-discard="${op.id}">Принять серверную</button> ${op.server?.version===undefined || /\/(number|create)$/.test(op.field)?'':`<button data-keep="${op.id}">Оставить мою</button>`}</div>`).join('')}`:''}`;
 }
 function fieldLabel(field) {
+  if (field==='release-order') return 'Нумерация выпусков';
   const [group,id,key,prop] = field.split('/');
   if (group==='editor') return 'Добавлен монтажёр';
   if (group==='release') {
@@ -463,6 +468,37 @@ function openShoot() {
     await change([...entries,...fields.filter(([key,value])=>value!==(old[key] || '')).map(([key,value])=>[`shoot/${shoot.id}/${key}`,value])]);
   });
 }
+function renumber() {
+  if (!manager()) return;
+  const {episode}=selection();
+  if (!episode) return;
+  const current=episodeNumber(episode.number);
+  modal('Номер выпуска',`<label>Номер в сезоне ${episode.season}<select name="number">
+    ${Array.from({length:10},(_,index)=>`<option value="${index+1}" ${index+1===current?'selected':''}>№${index+1}</option>`).join('')}
+    </select></label><p id="number-note" class="muted"></p>`,async form=>{
+    const selected=Number(form.get('number'));
+    if (!Number.isInteger(selected) || selected<1 || selected>10) throw Error('Выберите номер от 1 до 10.');
+    const target=(episode.season-1)*10+selected;
+    const order=state.data.episodes.map(item=>releaseNumber(item.number,read));
+    const previous=order[episode.number-1];
+    if (previous===target) return;
+    const other=order.indexOf(target);
+    order[episode.number-1]=target;
+    order[other]=previous;
+    await change([['release-order',JSON.stringify(order)]]);
+  });
+  const select=dialog.querySelector('select');
+  const explain=()=>{
+    const selected=Number(select.value);
+    const otherEpisode=state.data.episodes.find(item=>item.season===episode.season && episodeNumber(item.number)===selected);
+    const other=shoots().find(item=>item.number===otherEpisode?.number);
+    dialog.querySelector('#number-note').textContent=selected===current ? 'Выберите новый номер.' :
+      other ? `Номера поменяются местами с выпуском «${other.guest}». Все даты, этапы и монтажёры сохранятся у своих выпусков.` :
+        `Текущий выпуск получит №${selected}. Даты, этапы и монтажёр сохранятся.`;
+  };
+  select.addEventListener('change',explain);
+  explain();
+}
 function bind() {
   const {shoot} = selection();
   const taken = new Set(shoots().map(s=>s.number));
@@ -548,6 +584,7 @@ document.addEventListener('click',async event=>{
       case 'close': dialog.close(); break;
       case 'shoot': openShoot(); break;
       case 'editor': openEditor(); break;
+      case 'renumber': renumber(); break;
       case 'bind': bind(); break;
       case 'add-release': addRelease(Number(d.number)); break;
       case 'calendar-pdf': await prepareCalendarPdf(d.seasonDownload ? Number(d.seasonDownload) : undefined); break;

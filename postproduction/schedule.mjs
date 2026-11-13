@@ -7,6 +7,10 @@ export function finishDelta(date, originalEnd) {
   return `${days>0 ? '+' : ''}${days} дн.`;
 }
 export const latest = (...dates) => dates.filter(Boolean).sort().at(-1) || '';
+export function releaseNumber(number,read) {
+  const order=read('release-order');
+  return order ? JSON.parse(order)[number-1] : number;
+}
 export const statuses = {
   todo:'Не начато', working:'В работе', waiting:'Ожидает', review:'На согласовании',
   done:'Готово', skipped:'Не требуется',
@@ -88,8 +92,9 @@ export function calendarFor(episodes, shoots, read, season) {
   const releases = episodes.filter(episode=>!season || episode.season===season).map(episode=>{
     const shoot = numbered.get(episode.number);
     const {items} = forecast(episode,shoot,read);
-    return {number:episode.number,season:episode.season,shoot,items,...progressFor(items)};
+    return {number:episode.number,displayNumber:releaseNumber(episode.number,read),season:episode.season,shoot,items,...progressFor(items)};
   });
+  releases.sort((a,b)=>a.displayNumber-b.displayNumber);
   return {releases,unlinked:shoots.filter(shoot=>!shoot.number)};
 }
 
