@@ -1,0 +1,19 @@
+{
+  "name": "Планёр — управление съёмками",
+  "short_name": "Планёр",
+  "description": "Календарь и задачи фото- и видеопродакшена",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c111b",
+  "theme_color": "#101520",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
