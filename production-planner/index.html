@@ -253,6 +253,19 @@
         operatorId=Number(member.employee_id)||0;
         if(role==="operator"&&["team","objects","reports"].includes(view))view="dashboard";
         render();
+      },
+      importLocal:async function(){
+        if(!window.PlanerCloud||window.PlanerCloud.profile?.role!=="admin")throw Error("Только администратор может переносить архив.");
+        var raw=localStorage.getItem(STORAGE);
+        if(!raw)throw Error("На этом устройстве нет сохранённых данных прежней версии.");
+        var old;
+        try{old=JSON.parse(raw)}catch(e){throw Error("Данные старой версии повреждены.")}
+        if(!old||!Array.isArray(old.tasks)||!Array.isArray(old.employees)||!Array.isArray(old.equipment))throw Error("Неверный формат архива.");
+        if(!confirm("Перенести "+old.tasks.length+" съёмок и "+old.employees.length+" сотрудников в общую базу? Текущие записи облака будут заменены."))return;
+        var previous=state;
+        state=old;
+        if(!(await save())){state=previous;throw Error("Перенос не выполнен.")}
+        render();notify("Архив перенесён в общую базу.");
       }
     };
     render();
