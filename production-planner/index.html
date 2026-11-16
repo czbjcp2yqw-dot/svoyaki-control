@@ -74,9 +74,10 @@
     function notify(s){var el=document.getElementById("toast");if(el)el.remove();el=document.createElement("div");el.id="toast";el.className="toast";el.textContent=s;document.body.appendChild(el);clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.remove()},3800)}
     function button(label,act,extra){return '<button class="btn '+(extra||"")+'" data-action="'+act+'">'+label+"</button>"}
     function render(){var root=document.getElementById("app");var title={dashboard:"Обзор продакшена",calendar:"Ресурсный календарь",tasks:"Все съёмки",objects:"Объекты и архив",team:"Команда и оборудование",reports:"Аналитика"}[view];
+      var shownNav=role==="operator"?nav.filter(function(v){return ["dashboard","calendar","tasks"].includes(v[0])}):nav;
       var aside='<aside class="aside"><div class="brand"><span class="brand-icon">◉</span>Планёр<span style="font-size:9px;color:var(--muted);align-self:flex-start">MVP</span></div><div class="eyebrow">Управление</div>'+
-       nav.map(function(v){return '<button class="nav-link '+(view===v[0]?"active":"")+'" data-action="view" data-view="'+v[0]+'"><span class="nav-ico">'+v[1]+"</span>"+v[2]+"</button>"}).join("")+
-       '<div class="aside-foot"><div class="chip">● Демо · данные в этом браузере</div><p>Для совместной работы потребуется сервер и авторизация.</p></div></aside>';
+       shownNav.map(function(v){return '<button class="nav-link '+(view===v[0]?"active":"")+'" data-action="view" data-view="'+v[0]+'"><span class="nav-ico">'+v[1]+"</span>"+v[2]+"</button>"}).join("")+
+       '<div class="aside-foot"><div class="chip">● Общая база Supabase</div><p>Изменения сохраняются в облаке, права проверяются сервером.</p></div></aside>';
       var head='<header class="header"><div><p class="eyebrow" style="margin:0 0 6px">PRODUCTION CONTROL</p><h1>'+title+'</h1><p class="sub">'+(role==="operator"?"Кабинет оператора · "+esc(empName(operatorId)):"Планирование и контроль съёмочного процесса")+'</p></div>'+
         '<div class="toolbar"><button class="btn hide-mobile" data-action="theme" title="Сменить тему">◐</button><button class="btn primary" data-action="new">＋ <span class="hide-mobile">Новая съёмка</span></button></div></header>';
       var selector='<div class="view-tools"><div class="list-tools"><label class="tiny muted" for="role">Режим:</label><select class="select" id="role" style="width:auto"><option value="coordinator" '+(role==="coordinator"?"selected":"")+'>Координатор</option><option value="operator" '+(role==="operator"?"selected":"")+'>Оператор (демо)</option></select>'+
@@ -90,7 +91,7 @@
       }
       var body={dashboard:dashboard,calendar:calendar,tasks:tasksPage,objects:objectsPage,team:teamPage,reports:reportsPage}[view]();
       root.innerHTML='<div class="layout">'+aside+'<main class="main">'+head+selector+body+'<div class="footer-note">Планёр MVP · Общая база с серверной проверкой прав</div></main></div>'+
-       '<nav class="mobile-nav">'+nav.slice(0,5).map(function(v){return '<button class="'+(view===v[0]?"active":"")+'" data-action="view" data-view="'+v[0]+'"><span class="nav-ico">'+v[1]+"</span>"+v[2]+"</button>"}).join("")+"</nav>"+(modal?renderModal():"");
+       '<nav class="mobile-nav">'+shownNav.slice(0,5).map(function(v){return '<button class="'+(view===v[0]?"active":"")+'" data-action="view" data-view="'+v[0]+'"><span class="nav-ico">'+v[1]+"</span>"+v[2]+"</button>"}).join("")+"</nav>"+(modal?renderModal():"");
     }
     function dashboard(){var current=tasksFor(today,role==="operator"?operatorId:null);var all=role==="operator"?state.tasks.filter(function(t){return t.employeeId===operatorId}):state.tasks;
       var inwork=current.filter(function(t){return ["in_progress","confirmed","assigned"].includes(t.status)}).length;
@@ -100,12 +101,12 @@
       var list=current.length?current.map(taskRow).join(""):'<div class="empty">На сегодня задач нет. Создайте новую съёмку.</div>';
       var people=state.employees.map(function(e){var jobs=tasksFor(today,e.id);var hours=jobs.reduce(function(s,t){return s+n(t.duration)},0)/60;return '<div class="person"><div class="split"><div class="flex"><span class="avatar">'+esc(initials(e.name))+'</span><div><div class="strong">'+esc(e.name)+'</div><div class="tiny muted">'+esc(e.job)+'</div></div></div><strong>'+hours.toFixed(1).replace(".",",")+' / '+n(e.hours)+' ч</strong></div><div class="progress"><span style="width:'+Math.min(100,Math.round(hours/Math.max(1,e.hours)*100))+'%"></span></div></div>'}).join("");
       return hero+stats+'<div class="grid2"><section class="section"><div class="section-head"><h2 class="section-title">Съёмки на сегодня</h2><button class="btn small" data-action="view" data-view="tasks">Все задачи</button></div>'+list+'</section><section class="section"><div class="section-head"><h2 class="section-title">Загрузка команды</h2><span class="tiny muted">Сегодня</span></div><div class="section-body">'+people+'</div></section></div>'+
-      '<div class="section"><div class="section-head"><h2 class="section-title">Быстрые действия</h2></div><div class="section-body flex">'+button("＋ Создать съёмку","new","primary")+button("▦ Открыть календарь","calendar")+button("▤ Сформировать план для MAX","plan")+button("⇩ Резервная копия","export")+'</div></div>';
+      '<div class="section"><div class="section-head"><h2 class="section-title">Быстрые действия</h2></div><div class="section-body flex">'+(role==="coordinator"?button("＋ Создать съёмку","new","primary"):"")+button("▦ Открыть календарь","calendar")+(role==="coordinator"?button("▤ Сформировать план для MAX","plan")+button("⇩ Резервная копия","export"):"")+'</div></div>';
     }
     function stat(title,val,sub){return '<div class="stat"><span>'+esc(title)+'</span><strong>'+val+'</strong><small>'+esc(sub)+'</small></div>'}
     function taskRow(t){var who=role==="coordinator"?'<span> · '+esc(empName(t.employeeId))+'</span>':"";return '<div class="task"><div class="flex" style="flex-wrap:nowrap;min-width:0"><div class="task-time">'+esc(t.time)+'</div><div style="min-width:0"><div class="task-title">'+esc(t.title)+'</div><div class="task-sub">'+esc(t.project)+" · "+esc(t.type)+who+'</div><div class="tiny muted">'+esc(t.address)+'</div></div></div><div class="task-actions">'+pill(t)+'<button class="btn small" data-action="details" data-id="'+t.id+'">Открыть</button></div></div>'}
     function calendar(){var mon=monday(selectedDay),days=Array.from({length:7},function(_,i){return addDays(mon,i)});
-      var toolbar='<div class="view-tools"><div class="flex"><button class="btn small" data-action="week-prev">‹</button><button class="btn small" data-action="week-next">›</button><button class="btn small" data-action="week-today">Сегодня</button><strong>'+esc(shortDate(days[0]))+' – '+esc(niceDate(days[6]))+'</strong></div><div class="flex">'+button("＋ Съёмка","new","primary")+button("Собрать план для MAX","plan")+'</div></div>';
+      var toolbar='<div class="view-tools"><div class="flex"><button class="btn small" data-action="week-prev">‹</button><button class="btn small" data-action="week-next">›</button><button class="btn small" data-action="week-today">Сегодня</button><strong>'+esc(shortDate(days[0]))+' – '+esc(niceDate(days[6]))+'</strong></div><div class="flex">'+(role==="coordinator"?button("＋ Съёмка","new","primary")+button("Собрать план для MAX","plan"):"")+'</div></div>';
       var header='<div class="week"><div class="day-h">Команда</div>'+days.map(function(d){return '<button class="day-h '+(d===today?"today":"")+'" data-action="select-day" data-date="'+d+'">'+esc(dow(d))+'<br><strong>'+esc(shortDate(d))+'</strong></button>'}).join("");
       var persons=role==="operator"?[employee(operatorId)].filter(Boolean):state.employees;
       var rows=persons.map(function(e){return '<div class="employee-h">'+esc(e.name)+'<div class="tiny muted">'+esc(e.job)+'</div></div>'+days.map(function(d){var items=tasksFor(d,e.id);return '<div class="cell">'+items.map(function(t){return '<button class="event" data-action="details" data-id="'+t.id+'"><b>'+esc(t.time)+'</b> '+esc(t.title)+'<br><span class="muted">'+esc(t.project)+'</span></button>'}).join("")+'</div>'}).join("")}).join("");
@@ -128,7 +129,7 @@
     }
     function renderModal(){var type=modal.type,t=state.tasks.find(function(x){return x.id===modal.id}),head="",content="",foot="";
       if(type==="new"||type==="edit"){
-        var x=t||{title:"",project:"",address:"",date:selectedDay,time:"10:00",duration:120,employeeId:1,type:"Видео",brief:"",details:"",contact:"",status:"assigned"};
+        var x=t||{title:"",project:"",address:"",date:selectedDay,time:"10:00",duration:120,employeeId:state.employees.length?state.employees[0].id:0,type:"Видео",brief:"",details:"",contact:"",status:"assigned"};
         head=type==="new"?"Новая съёмка":"Изменить съёмку";
         content='<form id="task-form"><div class="form-grid">'+
           field("Название *","title",x.title,"text",true)+field("Объект / проект *","project",x.project,"text",true)+field("Адрес *","address",x.address,"text",true)+
