@@ -1,5 +1,5 @@
-const CACHE = "planer-mvp-v1";
-const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
+const CACHE = "planer-cloud-v2";
+const FILES = ["./", "./index.html", "./cloud.js", "./cloud.css", "./manifest.webmanifest", "./icon.svg"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)));
   self.skipWaiting();
