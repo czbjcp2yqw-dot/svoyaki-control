@@ -1,11 +1,11 @@
-const CACHE = "planer-cloud-v2";
+const CACHE = "planer-svoyaki-legacy-v1";
 const FILES = ["./", "./index.html", "./cloud.js", "./cloud.css", "./manifest.webmanifest", "./icon.svg"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)));
   self.skipWaiting();
 });
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((x) => x !== CACHE).map((x) => caches.delete(x)))));
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((x) => /^(planer-cloud-|planer-mvp-|planer-svoyaki-legacy-)/.test(x) && x !== CACHE).map((x) => caches.delete(x)))));
   self.clients.claim();
 });
 self.addEventListener("fetch", (e) => {
