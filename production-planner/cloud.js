@@ -115,7 +115,7 @@ function adminUI(employees){
   }).join("");
   return '<section class="section"><div class="section-head"><h2 class="section-title">Доступ пользователей</h2><span class="chip">Администратор</span></div>'+
    '<div class="section-body"><p class="tiny muted">Сотрудник регистрируется по электронной почте. Здесь одобри его аккаунт и назначь исполнителя из календаря.</p>'+
-   (rows||'<div class="empty">Заявок пока нет</div>')+'</div></section>';
+   (rows||'<div class="empty">Заявок пока нет</div>')+'<div class="pc-divider"></div><button class="btn small" data-cloud-action="import-local">Перенести сохранённые данные прежней версии</button></div></section>';
 }
 async function start(b){
   bridge=b;wait("Подключаем защищённую базу…");
@@ -128,6 +128,10 @@ async function start(b){
   });
   sb.auth.onAuthStateChange(ev=>{if(ev==="SIGNED_OUT")setTimeout(()=>{if(!active)auth()},0)});
   await refresh(true);
+  if(!timer)timer=setInterval(function(){
+    if(document.visibilityState!=="visible")return;
+    if((active||profile&&!profile.active)&&Date.now()-lastSync>12000)refresh(false);
+  },15000);
   document.addEventListener("visibilitychange",()=>{if(active&&document.visibilityState==="visible")refresh(false)});
 }
 document.addEventListener("click",async e=>{
@@ -137,6 +141,11 @@ document.addEventListener("click",async e=>{
   if(el.id==="pc-logout"){await logout();return}
   if(el.id==="pc-check"){wait();await refresh(true);return}
   const action=el.getAttribute("data-cloud-action");
+  if(action==="import-local"){
+    try{await bridge.importLocal();await refresh(true)}
+    catch(err){alert(err.message)}
+    return;
+  }
   if(action!=="member"&&action!=="disable")return;
   const userId=el.dataset.id,role=document.querySelector('.pc-role[data-id="'+userId+'"]'),employee=document.querySelector('.pc-employee[data-id="'+userId+'"]');
   if(!role||!employee)return;
