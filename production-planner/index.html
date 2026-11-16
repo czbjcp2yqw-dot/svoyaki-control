@@ -8,6 +8,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <title>Планёр — управление съёмками</title>
+  <link rel="stylesheet" href="./cloud.css">
   <style>
     :root{color-scheme:dark;--bg:#0c111b;--panel:#141b28;--panel2:#192232;--line:#293445;--text:#edf3ff;--muted:#93a2b7;--accent:#b7f36c;--accentText:#1c2710;--blue:#82bbff;--red:#f9a2a7;--amber:#f3c478;--radius:17px;--shadow:0 20px 60px #0003}
     body.light{color-scheme:light;--bg:#f6f7fa;--panel:#fff;--panel2:#f0f3f8;--line:#dce2eb;--text:#202938;--muted:#69778a;--accent:#355dd3;--accentText:#fff;--blue:#345fae;--red:#af323d;--amber:#9b670e;--shadow:0 16px 50px #29385213}
@@ -20,6 +21,8 @@
 </head>
 <body>
   <div id="app"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
+  <script src="./cloud.js"></script>
   <script>
   (function(){
     "use strict";
@@ -50,7 +53,15 @@
     ],equipment:[{id:1,name:"Sony FX3",holder:1},{id:2,name:"Штатив",holder:0},{id:3,name:"Sony A7 IV",holder:4}],updatedAt:Date.now()}}
     var state=load();
     try{if(localStorage.getItem(THEME_KEY)==="light")document.body.classList.add("light")}catch(e){}
-    function save(){state.updatedAt=Date.now();try{localStorage.setItem(STORAGE,JSON.stringify(state))}catch(e){notify("Не удалось сохранить изменения в браузере")}}
+    async function save(){
+      state.updatedAt=Date.now();
+      if(window.PlanerCloud){
+        try{await window.PlanerCloud.save(JSON.parse(JSON.stringify(state)));return true}
+        catch(e){notify("Не сохранено: "+(e.message||e));return false}
+      }
+      try{localStorage.setItem(STORAGE,JSON.stringify(state));return true}
+      catch(e){notify("Не удалось сохранить изменения в браузере");return false}
+    }
     function employee(eid){return state.employees.find(function(e){return String(e.id)===String(eid)})}
     function empName(eid){return (employee(eid)||{}).name||"Не назначен"}
     function tasksFor(date,eid){return state.tasks.filter(function(t){return (!date||t.date===date)&&(!eid||String(t.employeeId)===String(eid))&&t.status!=="cancelled"}).sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time)})}
@@ -70,8 +81,15 @@
         '<div class="toolbar"><button class="btn hide-mobile" data-action="theme" title="Сменить тему">◐</button><button class="btn primary" data-action="new">＋ <span class="hide-mobile">Новая съёмка</span></button></div></header>';
       var selector='<div class="view-tools"><div class="list-tools"><label class="tiny muted" for="role">Режим:</label><select class="select" id="role" style="width:auto"><option value="coordinator" '+(role==="coordinator"?"selected":"")+'>Координатор</option><option value="operator" '+(role==="operator"?"selected":"")+'>Оператор (демо)</option></select>'+
        (role==="operator"?'<select class="select" id="operator" style="width:auto">'+state.employees.map(function(e){return '<option value="'+e.id+'" '+(operatorId===e.id?"selected":"")+'>'+esc(e.name)+"</option>"}).join("")+"</select>":"")+'</div><div class="flex"><span class="chip">Данные сохраняются на устройстве</span></div></div>';
+      if(window.PlanerCloud){
+        var p=window.PlanerCloud.profile||{};
+        var roleLabel=p.role==="admin"?"Администратор":p.role==="coordinator"?"Координатор":"Оператор";
+        selector='<div class="view-tools"><div class="list-tools"><span class="chip">'+esc(roleLabel)+' · '+esc(p.display_name||"")+
+          '</span><span class="chip" id="cloud-status">Общая база · онлайн</span></div><div class="flex"><button class="btn small" data-action="cloud-logout">Выйти</button></div></div>';
+        if(role==="operator") head=head.replace('<button class="btn primary" data-action="new">＋ <span class="hide-mobile">Новая съёмка</span></button>','');
+      }
       var body={dashboard:dashboard,calendar:calendar,tasks:tasksPage,objects:objectsPage,team:teamPage,reports:reportsPage}[view]();
-      root.innerHTML='<div class="layout">'+aside+'<main class="main">'+head+selector+body+'<div class="footer-note">Планёр MVP · Демонстрационный режим · Без облачной синхронизации</div></main></div>'+
+      root.innerHTML='<div class="layout">'+aside+'<main class="main">'+head+selector+body+'<div class="footer-note">Планёр MVP · Общая база с серверной проверкой прав</div></main></div>'+
        '<nav class="mobile-nav">'+nav.slice(0,5).map(function(v){return '<button class="'+(view===v[0]?"active":"")+'" data-action="view" data-view="'+v[0]+'"><span class="nav-ico">'+v[1]+"</span>"+v[2]+"</button>"}).join("")+"</nav>"+(modal?renderModal():"");
     }
     function dashboard(){var current=tasksFor(today,role==="operator"?operatorId:null);var all=role==="operator"?state.tasks.filter(function(t){return t.employeeId===operatorId}):state.tasks;
@@ -102,7 +120,7 @@
     }
     function teamPage(){var emp=state.employees.map(function(e){var current=tasksFor(today,e.id);return '<div class="person"><div class="split"><div class="flex"><span class="avatar">'+esc(initials(e.name))+'</span><div><strong>'+esc(e.name)+'</strong><div class="tiny muted">'+esc(e.job)+' · '+e.hours+' ч/день</div></div></div><span class="chip">'+current.length+' съёмок сегодня</span></div></div>'}).join("");
       var eq=(state.equipment||[]).map(function(q){return '<div class="person split"><strong>'+esc(q.name)+'</strong><div class="flex"><span class="tiny muted">'+(q.holder?"У "+esc(empName(q.holder)):"На складе")+'</span><button class="btn small" data-action="equipment" data-id="'+q.id+'">'+(q.holder?"Вернуть":"Выдать")+'</button></div></div>'}).join("");
-      return '<div class="grid2"><section class="section"><div class="section-head"><h2 class="section-title">Сотрудники</h2><button class="btn small" data-action="add-person">＋ Добавить</button></div><div class="section-body">'+emp+'</div></section><section class="section"><div class="section-head"><h2 class="section-title">Дежурное оборудование</h2><span class="chip">Учёт MVP</span></div><div class="section-body">'+eq+'</div></section></div><div class="notice info">Графики 2/2, отпуска, доступы и история выдачи оборудования будут добавлены при подключении серверной базы данных. Сейчас изменения сохраняются только в этом браузере.</div>';
+      return '<div class="grid2"><section class="section"><div class="section-head"><h2 class="section-title">Сотрудники</h2><button class="btn small" data-action="add-person">＋ Добавить</button></div><div class="section-body">'+emp+'</div></section><section class="section"><div class="section-head"><h2 class="section-title">Дежурное оборудование</h2><span class="chip">Учёт MVP</span></div><div class="section-body">'+eq+'</div></section></div><div class="notice info">Графики 2/2, отпуска, доступы и история выдачи оборудования будут добавлены при подключении серверной базы данных. Для совместной работы используются облачные учётные записи. Расширенные графики и журнал оборудования — следующий этап.</div>'+(window.PlanerCloud?window.PlanerCloud.adminUI(state.employees):'');
     }
     function reportsPage(){var jobs=state.tasks.filter(function(t){return t.status!=="cancelled"}),late=jobs.filter(isLate),total=jobs.reduce(function(s,t){return s+n(t.duration)},0)/60;
       var rows=state.employees.map(function(e){var items=jobs.filter(function(t){return t.employeeId===e.id});var hours=items.reduce(function(s,t){return s+n(t.duration)},0)/60;return '<div class="metric-row"><div class="split"><strong>'+esc(e.name)+'</strong><span>'+hours.toFixed(1).replace(".",",")+' ч · '+items.length+' задач</span></div><div class="progress"><span style="width:'+Math.min(100,Math.round(hours/Math.max(1,total)*100))+'%"></span></div></div>'}).join("");
@@ -155,8 +173,9 @@
     function exportData(){var data=new Blob([JSON.stringify(state,null,2)],{type:"application/json;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(data);a.download="planer-backup-"+today+".json";a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000);notify("Резервная копия создана")}
     function showModal(type,extra){modal=Object.assign({type:type},extra||{});render()}
     function setView(v){view=v;modal=null;render();window.scrollTo(0,0)}
-    document.addEventListener("click",function(e){
+    document.addEventListener("click",async function(e){
       var a=e.target.closest("[data-action]");if(!a){if(e.target.id==="overlay"){modal=null;render()}return}var action=a.dataset.action,taskid=a.dataset.id,t=state.tasks.find(function(x){return x.id===taskid});
+      if(action==="cloud-logout"&&window.PlanerCloud){await window.PlanerCloud.logout();return}
       if(action==="view"){setView(a.dataset.view);return}
       if(action==="calendar"){setView("calendar");return}
       if(action==="theme"){document.body.classList.toggle("light");localStorage.setItem(THEME_KEY,document.body.classList.contains("light")?"light":"dark");return}
@@ -165,7 +184,15 @@
       if(action==="details"&&t){showModal("details",{id:taskid});return}
       if(action==="edit"&&t){showModal("edit",{id:taskid});return}
       if(action==="material"&&t){showModal("material",{id:taskid});return}
-      if(action==="status"&&t){t.status=a.dataset.status;save();showModal("details",{id:taskid});notify("Статус обновлён");return}
+      if(action==="status"&&t){
+        if(window.PlanerCloud&&role==="operator"){
+          try{await window.PlanerCloud.progress(t.id,a.dataset.status);showModal("details",{id:taskid});notify("Статус обновлён")}
+          catch(err){notify("Не удалось: "+err.message);await window.PlanerCloud.refresh(true)}
+          return;
+        }
+        t.status=a.dataset.status;if(!(await save()))return;
+        showModal("details",{id:taskid});notify("Статус обновлён");return
+      }
       if(action==="week-prev"){selectedDay=addDays(selectedDay,-7);render();return}
       if(action==="week-next"){selectedDay=addDays(selectedDay,7);render();return}
       if(action==="week-today"){selectedDay=today;render();return}
@@ -175,10 +202,10 @@
       if(action==="object"){showModal("object",{name:a.dataset.name});return}
       if(action==="add-person"){showModal("add-person");return}
       if(action==="equipment"){showModal("equipment",{id:Number(taskid)});return}
-      if(action==="give-equipment"){var q=state.equipment.find(function(x){return x.id===Number(taskid)});if(q){q.holder=Number(document.getElementById("equipment-person").value);save();modal=null;render();notify("Выдача отмечена")}return}
-      if(action==="return-equipment"){var qq=state.equipment.find(function(x){return x.id===Number(taskid)});if(qq){qq.holder=0;save();modal=null;render();notify("Возврат отмечен")}return}
+      if(action==="give-equipment"){var q=state.equipment.find(function(x){return x.id===Number(taskid)});if(q){q.holder=Number(document.getElementById("equipment-person").value);if(!(await save()))return;modal=null;render();notify("Выдача отмечена")}return}
+      if(action==="return-equipment"){var qq=state.equipment.find(function(x){return x.id===Number(taskid)});if(qq){qq.holder=0;if(!(await save()))return;modal=null;render();notify("Возврат отмечен")}return}
       if(action==="export"){exportData();return}
-      if(action==="import"){var f=document.createElement("input");f.type="file";f.accept="application/json,.json";f.onchange=function(){if(!f.files||!f.files[0])return;f.files[0].text().then(function(str){var next=JSON.parse(str);if(!Array.isArray(next.tasks)||!Array.isArray(next.employees))throw Error("Неверная структура");if(!confirm("Заменить текущие данные резервной копией?"))return;state=next;save();render();notify("Данные восстановлены")}).catch(function(){notify("Не удалось прочитать файл")})};f.click();return}
+      if(action==="import"){var f=document.createElement("input");f.type="file";f.accept="application/json,.json";f.onchange=function(){if(!f.files||!f.files[0])return;f.files[0].text().then(function(str){var next=JSON.parse(str);if(!Array.isArray(next.tasks)||!Array.isArray(next.employees))throw Error("Неверная структура");if(!confirm("Заменить текущие данные резервной копией?"))return;state=next;save().then(function(ok){if(ok){render();notify("Данные восстановлены")}})}).catch(function(){notify("Не удалось прочитать файл")})};f.click();return}
     });
     document.addEventListener("change",function(e){
       if(e.target.id==="role"){role=e.target.value;view="dashboard";render()}
@@ -186,7 +213,7 @@
       if(e.target.id==="status-filter"){statusFilter=e.target.value;render()}
     });
     document.addEventListener("input",function(e){if(e.target.id==="search"){search=e.target.value;var start=e.target.selectionStart;render();var el=document.getElementById("search");if(el){el.focus();el.setSelectionRange(start,start)}}});
-    document.addEventListener("submit",function(e){e.preventDefault();var form=e.target,fd=new FormData(form);
+    document.addEventListener("submit",async function(e){e.preventDefault();var form=e.target,fd=new FormData(form);
       if(form.id==="task-form"){
         var t=modal&&modal.type==="edit"?state.tasks.find(function(x){return x.id===modal.id}):null;
         var incoming={title:String(fd.get("title")||"").trim(),project:String(fd.get("project")||"").trim(),address:String(fd.get("address")||"").trim(),date:String(fd.get("date")||""),time:String(fd.get("time")||""),duration:n(fd.get("duration")),employeeId:n(fd.get("employeeId")),type:String(fd.get("type")||"Видео"),brief:String(fd.get("brief")||"").trim(),details:String(fd.get("details")||"").trim(),contact:String(fd.get("contact")||"").trim(),status:String(fd.get("status")||"assigned")};
@@ -194,14 +221,41 @@
         var clash=overlap(incoming,t?t.id:null);
         if(clash){document.getElementById("form-error").innerHTML='<div class="notice" style="margin-top:15px">Пересечение расписания с задачей «'+esc(clash.title)+'» ('+esc(clash.time)+'). Выберите другое время или исполнителя.</div>';return}
         if(t)Object.assign(t,incoming);else state.tasks.push(Object.assign({id:id(),link:"",note:""},incoming));
-        save();modal=null;view="tasks";render();notify("Съёмка сохранена");return
+        if(!(await save()))return;modal=null;view="tasks";render();notify("Съёмка сохранена");return
       }
-      if(form.id==="material-form"){var t2=state.tasks.find(function(x){return x.id===modal.id});var link=String(fd.get("link")||"").trim();if(!url(link)){notify("Укажите действительную ссылку https://");return}if(t2){t2.link=link;t2.note=String(fd.get("note")||"");t2.status="uploaded";save();modal=null;render();notify("Ссылка на материалы сохранена")}return}
-      if(form.id==="person-form"){var name=String(fd.get("name")||"").trim(),job=String(fd.get("job")||"").trim(),hours=n(fd.get("hours"));if(!name||!job||hours<1||hours>24){notify("Проверьте поля сотрудника");return}state.employees.push({id:Date.now(),name:name,job:job,hours:hours});save();modal=null;render();notify("Сотрудник добавлен");return}
+      if(form.id==="material-form"){
+        var t2=state.tasks.find(function(x){return x.id===modal.id});
+        var link=String(fd.get("link")||"").trim();
+        if(!url(link)||!link.startsWith("https://")){notify("Укажите действительную HTTPS-ссылку");return}
+        if(t2){
+          var note=String(fd.get("note")||"");
+          if(window.PlanerCloud&&role==="operator"){
+            try{await window.PlanerCloud.progress(t2.id,"uploaded",link,note);modal=null;render();notify("Материалы переданы")}
+            catch(err){notify("Не удалось: "+err.message);await window.PlanerCloud.refresh(true)}
+            return;
+          }
+          t2.link=link;t2.note=note;t2.status="uploaded";
+          if(!(await save()))return;
+          modal=null;render();notify("Ссылка на материалы сохранена");
+        }
+        return
+      }
+      if(form.id==="person-form"){var name=String(fd.get("name")||"").trim(),job=String(fd.get("job")||"").trim(),hours=n(fd.get("hours"));if(!name||!job||hours<1||hours>24){notify("Проверьте поля сотрудника");return}state.employees.push({id:Date.now(),name:name,job:job,hours:hours});if(!(await save()))return;modal=null;render();notify("Сотрудник добавлен");return}
     });
     document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modal){modal=null;render()}});
     if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){})})}
+    window.__PLANER_BRIDGE={
+      boot:function(snapshot,member,list,revision){
+        if(!snapshot||!Array.isArray(snapshot.tasks)||!Array.isArray(snapshot.employees)){notify("Некорректный ответ сервера");return}
+        state=snapshot;
+        role=member.role==="operator"?"operator":"coordinator";
+        operatorId=Number(member.employee_id)||0;
+        if(role==="operator"&&["team","objects","reports"].includes(view))view="dashboard";
+        render();
+      }
+    };
     render();
+    if(window.PlanerCloud)window.PlanerCloud.start(window.__PLANER_BRIDGE);
   })();
   </script>
 </body>
